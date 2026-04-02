@@ -1,0 +1,57 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Journal d'audit</h1>
+    <p class="page-subtitle">Traçabilité complète de toutes les actions — ADMIN uniquement</p>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="filters-bar" style="margin-bottom:1rem;">
+  <input class="form-control" style="width:300px;" placeholder="Rechercher dans les détails…"
+         [value]="searchText()" (input)="searchText.set($any($event.target).value)" />
+  <select class="form-control" style="width:200px;"
+          [value]="filtreType()"
+          (change)="filtreType.set($any($event.target).value); load()">
+    <option value="">Tous les objets</option>
+    @for (t of typeActions; track t) {
+      <option [value]="t">{{ t }}</option>
+    }
+  </select>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">Chargement…</div>
+} @else {
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date / Heure</th>
+            <th>Action</th>
+            <th>Objet</th>
+            <th>Utilisateur</th>
+            <th>Détails</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (log of filtered(); track log.id) {
+            <tr>
+              <td class="mono">{{ log.dateHeure | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+              <td><span class="tag" [class]="actionClass(log.typeAction)">{{ log.typeAction }}</span></td>
+              <td>
+                <span class="tag tag-default">{{ log.typeObjet }}</span>
+                <span style="margin-left:.4rem; color:var(--text-muted);">#{{ log.idObjet }}</span>
+              </td>
+              <td>{{ log.utilisateur?.nomComplet || (log.utilisateur ? log.utilisateur.prenom + ' ' + log.utilisateur.nom : '—') }}</td>
+              <td class="audit-details">{{ log.details }}</td>
+            </tr>
+          }
+          @if (filtered().length === 0) {
+            <tr><td colspan="5" class="empty-state">Aucun log trouvé</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}

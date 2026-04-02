@@ -1,0 +1,620 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Tableau de bord</h1>
+    <p class="page-subtitle">Vue d'ensemble — mise à jour automatique toutes les 60 secondes</p>
+  </div>
+  @if (isChargeMission) {
+    <a class="btn btn-primary" routerLink="/interventions/nouvelle">+ Nouvelle intervention</a>
+  }
+</div>
+
+@if (loading()) {
+  <div class="loading-state">Chargement des données…</div>
+} @else {
+
+  <!-- ═══════════════ CDM DASHBOARD ═══════════════ -->
+  @if (isChargeMission && cdmKpi(); as ck) {
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-card--critique" (click)="goToAlertes()">
+        <div class="kpi-icon">📨</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ ck['alertesEnAttente'] }}</div>
+          <div class="kpi-label">Alertes à traiter</div>
+        </div>
+        <span class="kpi-link">Voir →</span>
+      </div>
+      <div class="kpi-card kpi-card--mois" (click)="goToInterventionsMois()">
+        <div class="kpi-icon">📅</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ ck['interventionsCeMois'] }}</div>
+          <div class="kpi-label">Mes interventions ce mois</div>
+        </div>
+        <span class="kpi-link">Voir →</span>
+      </div>
+      <div class="kpi-card kpi-card--retard" (click)="goToInterventions({retard:'oui'})">
+        <div class="kpi-icon">🕐</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ ck['interventionsEnRetard'] }}</div>
+          <div class="kpi-label">Mes interventions en retard</div>
+        </div>
+        <span class="kpi-link">Voir →</span>
+      </div>
+      <div class="kpi-card" style="border-left:4px solid var(--blue);" (click)="goToInterventions({statut:'A_CLOTURER'})">
+        <div class="kpi-icon">📋</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ ck['interventionsACloturer'] }}</div>
+          <div class="kpi-label">À clôturer</div>
+        </div>
+        <span class="kpi-link">Voir →</span>
+      </div>
+      <div class="kpi-card kpi-card--conformite">
+        <div class="kpi-icon">✓</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ ck['tauxCloture'] }}%</div>
+          <div class="kpi-label">Taux de clôture</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Performance cards -->
+    <div class="grid-2" style="margin: 1.5rem 0;">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Ma performance — Alertes</span>
+        </div>
+        <div class="card-body">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div>
+              <div style="font-size:.8rem; color:var(--text-muted);">Traitées</div>
+              <div style="font-size:1.5rem; font-weight:700; color:var(--green);">{{ ck['alertesTraitees'] }}</div>
+            </div>
+            <div>
+              <div style="font-size:.8rem; color:var(--text-muted);">Total assignées</div>
+              <div style="font-size:1.5rem; font-weight:700;">{{ ck['alertesTotal'] }}</div>
+            </div>
+            <div style="grid-column:1/-1;">
+              <div style="font-size:.8rem; color:var(--text-muted); margin-bottom:.25rem;">Taux traitement alertes</div>
+              <div style="background:var(--surface-2); border-radius:6px; height:8px; overflow:hidden;">
+                <div style="height:100%; border-radius:6px; transition:width .3s;" [style.width.%]="ck['tauxTraitementAlertes']"
+                     [style.background]="ck['tauxTraitementAlertes'] >= 80 ? 'var(--green)' : ck['tauxTraitementAlertes'] >= 50 ? 'var(--orange)' : 'var(--red)'"></div>
+              </div>
+              <div style="font-size:.75rem; margin-top:.25rem; color:var(--text-muted);">{{ ck['tauxTraitementAlertes'] }}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Ma performance — Interventions</span>
+        </div>
+        <div class="card-body">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div>
+              <div style="font-size:.8rem; color:var(--text-muted);">Actives</div>
+              <div style="font-size:1.5rem; font-weight:700; color:var(--blue);">{{ ck['interventionsActives'] }}</div>
+            </div>
+            <div>
+              <div style="font-size:.8rem; color:var(--text-muted);">Clôturées</div>
+              <div style="font-size:1.5rem; font-weight:700; color:var(--green);">{{ ck['interventionsCloturees'] }}</div>
+            </div>
+            <div style="grid-column:1/-1;">
+              <div style="font-size:.8rem; color:var(--text-muted); margin-bottom:.25rem;">Taux de clôture</div>
+              <div style="background:var(--surface-2); border-radius:6px; height:8px; overflow:hidden;">
+                <div style="height:100%; border-radius:6px; transition:width .3s;" [style.width.%]="ck['tauxCloture']"
+                     [style.background]="ck['tauxCloture'] >= 80 ? 'var(--green)' : ck['tauxCloture'] >= 50 ? 'var(--orange)' : 'var(--red)'"></div>
+              </div>
+              <div style="font-size:.75rem; margin-top:.25rem; color:var(--text-muted);">{{ ck['tauxCloture'] }}% — {{ ck['interventionsTotal'] }} total</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alertes à traiter -->
+    @if (mesAlertesAssignees().length > 0) {
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-header">
+          <span class="card-title">Mes alertes à traiter</span>
+          <span class="card-link" style="cursor:pointer;" (click)="goToAlertes()">Tout voir →</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Niveau</th>
+                <th>Objet</th>
+                <th>Description</th>
+                <th>Assignée le</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (a of mesAlertesAssignees(); track a.id) {
+                <tr [class.row--critique]="a.niveau === 'CRITIQUE'">
+                  <td><span class="alert-badge" [class]="niveauClass(a.niveau)">{{ a.niveau }}</span></td>
+                  <td>{{ a.objetLibelle }}</td>
+                  <td class="alerte-desc">{{ a.description }}</td>
+                  <td>{{ a.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td>
+                    <span class="btn btn-primary btn-sm" style="cursor:pointer;" (click)="creerInterventionDepuisAlerte(a)">
+                      Créer intervention
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- Interventions à clôturer -->
+    @if (interventionsACloturer().length > 0) {
+      <div class="card" style="margin-bottom:1.5rem; border-left:4px solid var(--blue);">
+        <div class="card-header">
+          <span class="card-title">Interventions en attente de clôture</span>
+          <span class="card-link" style="cursor:pointer;" (click)="goToInterventions({statut:'A_CLOTURER'})">Tout voir →</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Référence</th>
+                <th>Tunnel</th>
+                <th>Chef de mission</th>
+                <th>Date prévue</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (i of interventionsACloturer(); track i.id) {
+                <tr>
+                  <td><strong>{{ i.reference }}</strong></td>
+                  <td>{{ i.tunnel?.libelle }}</td>
+                  <td style="font-size:.85rem;">
+                    @for (a of (i.affectations || []); track a.utilisateurId) {
+                      @if (a.role?.toLowerCase()?.includes('chef')) {
+                        {{ a.nomComplet }}
+                      }
+                    }
+                  </td>
+                  <td>{{ i.datePrevue | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <span class="btn btn-primary btn-sm" style="cursor:pointer;" (click)="goToCloturer(i)">
+                      Clôturer
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- Mes interventions récentes -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="card-header">
+        <span class="card-title">Mes interventions récentes</span>
+        <span class="card-link" style="cursor:pointer;" (click)="goToInterventions()">Tout voir →</span>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Référence</th>
+              <th>Tunnel</th>
+              <th>Type</th>
+              <th>Statut</th>
+              <th>Date prévue</th>
+              <th>Équipe</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (i of interventions(); track i.id) {
+              <tr>
+                <td><span class="link-ref" style="cursor:pointer;" (click)="goToInterventions()">{{ i.reference }}</span></td>
+                <td>{{ i.tunnel?.libelle }}</td>
+                <td>{{ i.typeLibelle }}</td>
+                <td><span class="status-pill" [class]="statutClass(i.statut)">{{ statutLabel(i.statut) }}</span></td>
+                <td>{{ i.datePrevue | date:'dd/MM/yyyy' }}</td>
+                <td>
+                  <div class="avatar-row">
+                    @for (a of (i.affectations || []).slice(0,3); track a.utilisateurId) {
+                      <div class="avatar-sm" [title]="a.nomComplet">{{ a.nomComplet[0] }}</div>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Charge ingénieurs -->
+    @if (charge().length > 0) {
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Charge des ingénieurs</span>
+        </div>
+        <div class="card-body">
+          @for (ing of charge(); track ing.id) {
+            <div class="charge-row">
+              <div class="charge-meta">
+                <span class="charge-name">{{ ing.nomComplet }}</span>
+                <span class="charge-pole">{{ ing.pole }}</span>
+              </div>
+              <div class="charge-bar-wrap">
+                <div class="charge-bar" [class]="chargeClass(ing.niveau)"
+                     [style.width.%]="chargeBarWidth(ing.nbMissionsActives, maxCharge())"></div>
+              </div>
+              <span class="charge-count">{{ ing.nbMissionsActives }} mission(s)</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  }
+
+  <!-- ═══════════════ INGENIEUR DASHBOARD ═══════════════ -->
+  @if (isIngenieur && ingKpi(); as ik) {
+    <div class="kpi-grid">
+      <div class="kpi-card" style="border-left:4px solid var(--blue);">
+        <div class="kpi-icon">👔</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ ik['missionsChefActives'] }}</div>
+          <div class="kpi-label">Chef de mission</div>
+        </div>
+      </div>
+      <div class="kpi-card" style="border-left:4px solid var(--text-muted);">
+        <div class="kpi-icon">🔧</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ ik['missionsIntervenantActives'] }}</div>
+          <div class="kpi-label">Intervenant</div>
+        </div>
+      </div>
+      <div class="kpi-card kpi-card--retard">
+        <div class="kpi-icon">🕐</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ ik['missionsEnRetard'] }}</div>
+          <div class="kpi-label">Missions en retard</div>
+        </div>
+      </div>
+      <div class="kpi-card kpi-card--conformite">
+        <div class="kpi-icon">✅</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ ik['missionsCloturees'] }}</div>
+          <div class="kpi-label">Missions clôturées</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disponibilité -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="card-body" style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+        <span>Statut :
+          <strong [style.color]="userStatut() === 'INDISPONIBLE' ? 'var(--red)' : 'var(--green)'">
+            {{ userStatut() === 'INDISPONIBLE' ? 'Indisponible' : 'Disponible' }}
+          </strong>
+        </span>
+        <button type="button" class="btn btn-primary" (click)="signalerDisponibilite()">
+          @if (userStatut() === 'INDISPONIBLE') {
+            Me déclarer disponible
+          } @else {
+            Signaler une indisponibilité
+          }
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal indisponibilité -->
+    @if (showIndispoModal()) {
+      <div class="modal-overlay" (click)="fermerIndispoModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:520px;">
+          @if (!indispoResult()) {
+            <div class="modal-header">
+              <h3 style="margin:0;">Signaler une indisponibilité</h3>
+              <button class="btn-icon-danger" (click)="fermerIndispoModal()">✕</button>
+            </div>
+            <div class="modal-body">
+              <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:1rem;">
+                Vos missions actives (planifiées et en cours) seront <strong>automatiquement suspendues</strong>
+                et les chargés de mission concernés seront notifiés.
+              </p>
+              <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Motif <span class="required">*</span></label>
+                <textarea class="form-control" [(ngModel)]="indispoMotif" rows="2"
+                          placeholder="Ex: Congé maladie, formation, congé personnel…"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date de retour prévue</label>
+                <input class="form-control" type="date" [(ngModel)]="indispoDateRetour" />
+              </div>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:.75rem; justify-content:flex-end; padding:1rem 1.5rem; border-top:1px solid var(--border);">
+              <button class="btn btn-secondary" (click)="fermerIndispoModal()">Annuler</button>
+              <button class="btn btn-primary" [disabled]="!indispoMotif.trim() || indispoLoading()"
+                      (click)="confirmerIndisponibilite()">
+                @if (indispoLoading()) { En cours… } @else { Confirmer l'indisponibilité }
+              </button>
+            </div>
+          } @else {
+            <div class="modal-header">
+              <h3 style="margin:0;">Indisponibilité enregistrée</h3>
+            </div>
+            <div class="modal-body">
+              <div style="padding:.75rem 1rem; border-radius:8px; background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.3); margin-bottom:1rem;">
+                <strong>{{ indispoResult().nbMissionsSuspendues }} mission(s) suspendue(s)</strong>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table" style="font-size:.85rem;">
+                  <thead>
+                    <tr><th>Référence</th><th>Tunnel</th><th>Votre rôle</th><th>Ancien statut</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (m of indispoResult().missionsSuspendues; track m.interventionId) {
+                      <tr>
+                        <td><strong>{{ m.reference }}</strong></td>
+                        <td>{{ m.tunnel }}</td>
+                        <td>{{ m.role }}</td>
+                        <td><span class="status-pill status-pill--{{ m.ancienStatut === 'EN_COURS' ? 'en-cours' : 'planifiee' }}">
+                          {{ m.ancienStatut === 'EN_COURS' ? 'En cours' : 'Planifiée' }}
+                        </span></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <p style="font-size:.8rem; color:var(--text-muted); margin-top:.75rem;">
+                Les chargés de mission concernés ont été notifiés par alerte. Ils pourront remplacer l'intervenant ou décaler l'intervention.
+              </p>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:flex-end; padding:1rem 1.5rem; border-top:1px solid var(--border);">
+              <button class="btn btn-primary" (click)="fermerIndispoModal()">Compris</button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Missions Chef de mission -->
+    @if (missionsChef().length > 0) {
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-header">
+          <span class="card-title">Mes missions — Chef de mission</span>
+          <span class="card-link" style="cursor:pointer;" (click)="goToInterventions()">Tout voir →</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Référence</th>
+                <th>Tunnel</th>
+                <th>Type</th>
+                <th>Statut</th>
+                <th>Date prévue</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (i of missionsChef(); track i.id) {
+                <tr>
+                  <td><span class="link-ref" style="cursor:pointer;" (click)="goToInterventions()">{{ i.reference }}</span></td>
+                  <td>{{ i.tunnel?.libelle }}</td>
+                  <td>{{ i.typeLibelle }}</td>
+                  <td><span class="status-pill" [class]="statutClass(i.statut)">{{ statutLabel(i.statut) }}</span></td>
+                  <td>{{ i.datePrevue | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+                      @if (i.statut === 'PLANIFIEE') {
+                        <span class="btn btn-primary btn-sm" style="cursor:pointer;" (click)="demarrerIntervention(i)">Démarrer</span>
+                      }
+                      @if (i.statut === 'SUSPENDUE') {
+                        <span class="btn btn-primary btn-sm" style="cursor:pointer;" (click)="reprendreIntervention(i)">Reprendre</span>
+                      }
+                      @if (i.statut === 'EN_COURS') {
+                        <span class="btn btn-secondary btn-sm" style="cursor:pointer;" (click)="goToRapport(i)">Soumettre rapport</span>
+                        <span class="btn btn-sm" style="cursor:pointer; background:var(--orange);color:#fff;" (click)="suspendreIntervention(i)">Suspendre</span>
+                      }
+                      @if (i.statut === 'A_CLOTURER') {
+                        <span class="status-pill status-pill--a-cloturer">En attente clôture</span>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- Missions Intervenant -->
+    @if (missionsIntervenant().length > 0) {
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-header">
+          <span class="card-title">Mes missions — Intervenant</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Référence</th>
+                <th>Tunnel</th>
+                <th>Type</th>
+                <th>Statut</th>
+                <th>Date prévue</th>
+                <th>Chef de mission</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (i of missionsIntervenant(); track i.id) {
+                <tr>
+                  <td>{{ i.reference }}</td>
+                  <td>{{ i.tunnel?.libelle }}</td>
+                  <td>{{ i.typeLibelle }}</td>
+                  <td><span class="status-pill" [class]="statutClass(i.statut)">{{ statutLabel(i.statut) }}</span></td>
+                  <td>{{ i.datePrevue | date:'dd/MM/yyyy' }}</td>
+                  <td style="font-size:.85rem;">
+                    @for (a of (i.affectations || []); track a.utilisateurId) {
+                      @if (a.role?.toLowerCase()?.includes('chef')) {
+                        {{ a.nomComplet }}
+                      }
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    @if (missionsChef().length === 0 && missionsIntervenant().length === 0) {
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-body">
+          <div class="empty-state">Aucune mission active pour le moment</div>
+        </div>
+      </div>
+    }
+  }
+
+  <!-- ═══════════════ ADMIN / EXPLOITANT DASHBOARD ═══════════════ -->
+  @if (!isChargeMission && !isIngenieur && kpi(); as k) {
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-card--critique" (click)="!isExploitant && goToAlertes('CRITIQUE')">
+        <div class="kpi-icon">⚠</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ k.alertesCritiques }}</div>
+          <div class="kpi-label">Alertes critiques</div>
+        </div>
+        @if (!isExploitant) {
+          <span class="kpi-link">Voir →</span>
+        }
+      </div>
+      <div class="kpi-card kpi-card--retard" (click)="!isExploitant && goToInterventions({retard:'oui'})">
+        <div class="kpi-icon">🕐</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ k.interventionsEnRetard }}</div>
+          <div class="kpi-label">Interventions en retard</div>
+        </div>
+        @if (!isExploitant) {
+          <span class="kpi-link">Voir →</span>
+        }
+      </div>
+      <div class="kpi-card kpi-card--mois" (click)="goToInterventionsMois()">
+        <div class="kpi-icon">📅</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ k.interventionsCeMois }}</div>
+          <div class="kpi-label">Interventions ce mois</div>
+        </div>
+        <span class="kpi-link">Voir →</span>
+      </div>
+      <div class="kpi-card kpi-card--conformite">
+        <div class="kpi-icon">✓</div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ k.tauxConformite }}%</div>
+          <div class="kpi-label">Taux de conformité</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:1.5rem;">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Alertes actives</span>
+          <span class="card-link" style="cursor:pointer;" (click)="goToAlertes()">Tout voir →</span>
+        </div>
+        <div class="card-body">
+          @for (alerte of alertes(); track alerte.id) {
+            <div class="alerte-row">
+              <span class="alert-badge" [class]="niveauClass(alerte.niveau)">{{ alerte.niveau }}</span>
+              <span class="alerte-msg">{{ alerte.description }}</span>
+            </div>
+          }
+          @if (alertes().length === 0) {
+            <div class="empty-state">Aucune alerte active</div>
+          }
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Conformité tunnels</span>
+        </div>
+        <div class="card-body" style="display:flex; align-items:center; gap:2rem;">
+          <svg width="130" height="130" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="54" fill="none" stroke="var(--border)" stroke-width="12"/>
+            <circle cx="60" cy="60" r="54" fill="none"
+              stroke="var(--green)" stroke-width="12"
+              stroke-linecap="round"
+              [attr.stroke-dasharray]="donutCircumference"
+              [attr.stroke-dashoffset]="donutOffset(k.tauxConformite)"
+              transform="rotate(-90 60 60)"/>
+            <text x="60" y="65" text-anchor="middle" fill="white" font-size="18" font-family="DM Sans">{{ k.tauxConformite }}%</text>
+          </svg>
+          <div class="tunnel-stats">
+            <div class="tunnel-stat"><span class="dot dot-green"></span><span>Conformes : <strong>{{ k.tunnelsConformes }}</strong></span></div>
+            <div class="tunnel-stat"><span class="dot dot-orange"></span><span>À planifier : <strong>{{ k.tunnelsAPlanifier }}</strong></span></div>
+            <div class="tunnel-stat"><span class="dot dot-red"></span><span>En retard : <strong>{{ k.tunnelsEnRetard }}</strong></span></div>
+            <div class="tunnel-stat" style="margin-top:.5rem; border-top:1px solid var(--border); padding-top:.5rem;"><span>Total : <strong>{{ k.totalTunnels }}</strong></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="card-header">
+        <span class="card-title">Interventions récentes</span>
+        <span class="card-link" style="cursor:pointer;" (click)="goToInterventions()">Tout voir →</span>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>Référence</th><th>Tunnel</th><th>Type</th><th>Statut</th><th>Date prévue</th><th>Équipe</th></tr>
+          </thead>
+          <tbody>
+            @for (i of interventions(); track i.id) {
+              <tr>
+                <td><span class="link-ref" style="cursor:pointer;" (click)="goToInterventions()">{{ i.reference }}</span></td>
+                <td>{{ i.tunnel?.libelle }}</td>
+                <td>{{ i.typeLibelle }}</td>
+                <td><span class="status-pill" [class]="statutClass(i.statut)">{{ statutLabel(i.statut) }}</span></td>
+                <td>{{ i.datePrevue | date:'dd/MM/yyyy' }}</td>
+                <td>
+                  <div class="avatar-row">
+                    @for (a of (i.affectations || []).slice(0,3); track a.utilisateurId) {
+                      <div class="avatar-sm" [title]="a.nomComplet">{{ a.nomComplet[0] }}</div>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    @if (isAdmin && charge().length > 0) {
+      <div class="card">
+        <div class="card-header"><span class="card-title">Charge des ingénieurs</span></div>
+        <div class="card-body">
+          @for (ing of charge(); track ing.id) {
+            <div class="charge-row">
+              <div class="charge-meta">
+                <span class="charge-name">{{ ing.nomComplet }}</span>
+                <span class="charge-pole">{{ ing.pole }}</span>
+              </div>
+              <div class="charge-bar-wrap">
+                <div class="charge-bar" [class]="chargeClass(ing.niveau)"
+                     [style.width.%]="chargeBarWidth(ing.nbMissionsActives, maxCharge())"></div>
+              </div>
+              <span class="charge-count">{{ ing.nbMissionsActives }} mission(s)</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  }
+}

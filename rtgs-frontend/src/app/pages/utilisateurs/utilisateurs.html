@@ -1,0 +1,104 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Utilisateurs</h1>
+    <p class="page-subtitle">Gestion des comptes et des accès</p>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="card" style="margin-bottom:1rem; padding:1rem;">
+  <div style="display:flex; flex-wrap:wrap; gap:.5rem; align-items:end;">
+    <div style="flex:1; min-width:200px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Recherche</label>
+      <input class="form-control" placeholder="Nom, email, pôle, compétences…"
+             [value]="searchText()" (input)="searchText.set($any($event.target).value)" />
+    </div>
+    <div style="min-width:180px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Rôle</label>
+      <select class="form-control" [value]="filtreRole()" (change)="setFiltre('role', $any($event.target).value)">
+        <option value="">Tous les rôles</option>
+        @for (r of roles; track r.value) {
+          <option [value]="r.value">{{ r.label }}</option>
+        }
+      </select>
+    </div>
+    <div style="min-width:160px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Statut</label>
+      <select class="form-control" [value]="filtreStatut()" (change)="setFiltre('statut', $any($event.target).value)">
+        <option value="">Tous les statuts</option>
+        @for (s of statuts; track s.value) {
+          <option [value]="s.value">{{ s.label }}</option>
+        }
+      </select>
+    </div>
+    @if (hasActiveFilters) {
+      <button class="btn btn-secondary btn-sm" style="height:36px;" (click)="resetFilters()">Effacer filtres</button>
+    }
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">Chargement…</div>
+} @else {
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nom complet</th>
+            <th>Email</th>
+            <th>Rôle</th>
+            <th>Statut</th>
+            <th>Pôle</th>
+            <th>Compétences</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of filtered(); track u.id) {
+            <tr [style.opacity]="isBlocked(u) ? '0.6' : '1'">
+              <td style="font-weight:500;">{{ u.nomComplet }}</td>
+              <td style="font-size:.85rem;">{{ u.email }}</td>
+              <td>
+                <span class="comp-chip">{{ roleLabel(u.role) }}</span>
+              </td>
+              <td>
+                <span class="status-pill" [class]="statutClass(u.statut)">{{ statutLabel(u.statut) }}</span>
+              </td>
+              <td>{{ u.pole || '—' }}</td>
+              <td>
+                <div class="comp-chips">
+                  @for (c of (u.competences || '').split(','); track c) {
+                    @if (c.trim()) {
+                      <span class="comp-chip">{{ c.trim() }}</span>
+                    }
+                  }
+                  @if (!u.competences) {
+                    <span style="color:var(--text-muted); font-size:.8rem;">—</span>
+                  }
+                </div>
+              </td>
+              <td>
+                <button class="btn btn-sm"
+                        [class]="isBlocked(u) ? 'btn-primary' : 'btn-danger'"
+                        (click)="toggleBlock(u)">
+                  @if (isBlocked(u)) {
+                    Débloquer
+                  } @else {
+                    Bloquer
+                  }
+                </button>
+              </td>
+            </tr>
+          }
+          @if (filtered().length === 0) {
+            <tr><td colspan="7" class="empty-state">Aucun utilisateur trouvé</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:.75rem 1rem; border-top:1px solid var(--border); font-size:.8rem; color:var(--text-muted);">
+      {{ filtered().length }} utilisateur(s)
+    </div>
+  </div>
+}

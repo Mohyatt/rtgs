@@ -1,0 +1,63 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Rapport de mission</h1>
+    @if (intervention(); as i) {
+      <p class="page-subtitle">{{ i.reference }} — {{ i.tunnel?.libelle }} — {{ i.typeLibelle }}</p>
+    }
+  </div>
+  <a class="btn btn-secondary" routerLink="/dashboard">← Retour</a>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">Chargement…</div>
+} @else if (intervention(); as i) {
+  <div style="margin-bottom:1.5rem; padding:1rem 1.25rem; border-radius:8px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3);">
+    <div style="display:flex; gap:2rem; flex-wrap:wrap; font-size:.875rem;">
+      <div><strong>Statut :</strong> {{ i.statut }}</div>
+      <div><strong>Date prévue :</strong> {{ i.datePrevue | date:'dd/MM/yyyy' }}</div>
+      @if (i.dateFinPrevue) {
+        <div><strong>Date fin prévue :</strong> {{ i.dateFinPrevue | date:'dd/MM/yyyy' }}</div>
+      }
+      @if (i.description) {
+        <div style="flex-basis:100%;"><strong>Description :</strong> {{ i.description }}</div>
+      }
+    </div>
+    @if (i.affectations && i.affectations.length > 0) {
+      <div style="margin-top:.75rem; font-size:.85rem;">
+        <strong>Équipe :</strong>
+        @for (a of i.affectations; track a.utilisateurId) {
+          <span style="margin-left:.5rem;">{{ a.nomComplet }} ({{ a.role }})</span>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="form-card" style="max-width:780px;">
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="form-section">
+        <h3 class="form-section-title">Rapport du chef de mission</h3>
+        <p class="form-hint">Ce rapport sera transmis au chargé de mission qui pourra ensuite clôturer l'intervention.</p>
+
+        <div class="form-group">
+          <label class="form-label">Résumé de la mission <span class="required">*</span></label>
+          <textarea class="form-control" formControlName="resume" rows="5"
+                    placeholder="Décrivez le déroulement de la mission, les constats principaux, les actions réalisées…"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Recommandations</label>
+          <textarea class="form-control" formControlName="recommandations" rows="3"
+                    placeholder="Préconisations pour les prochaines interventions, points de vigilance…"></textarea>
+        </div>
+      </div>
+
+      <div class="form-footer">
+        <a class="btn btn-secondary" routerLink="/dashboard">Annuler</a>
+        <button type="submit" class="btn btn-primary"
+                [disabled]="form.invalid || saving()">
+          @if (saving()) { Soumission en cours… } @else { Soumettre le rapport }
+        </button>
+      </div>
+    </form>
+  </div>
+}

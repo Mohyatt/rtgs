@@ -1,0 +1,86 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Nouvelle intervention</h1>
+    <p class="page-subtitle">Planifier une nouvelle mission de surveillance ou d'expertise</p>
+  </div>
+  <a class="btn btn-secondary" routerLink="/interventions">← Retour</a>
+</div>
+
+@if (alerteInfo()) {
+  <div class="info-box" style="margin-bottom:1rem; padding:1rem 1.25rem; border-radius:8px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); display:flex; gap:.75rem; align-items:center;">
+    <span style="font-size:1.25rem;">🔗</span>
+    <div>
+      <strong>Intervention liée à une alerte</strong>
+      <div style="color:var(--text-secondary); font-size:.875rem; margin-top:2px;">{{ alerteInfo() }}</div>
+    </div>
+  </div>
+}
+<div class="form-card" style="max-width:780px;">
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="form-section">
+      <h3 class="form-section-title">Informations générales</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tunnel <span class="required">*</span></label>
+          <select class="form-control" formControlName="tunnelId">
+            <option [value]="null">Sélectionner un tunnel…</option>
+            @for (t of tunnels(); track t.id) {
+              <option [value]="t.id">{{ t.libelle }} — {{ t.departement }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type d'intervention <span class="required">*</span></label>
+          <select class="form-control" formControlName="type">
+            <option value="">Sélectionner un type…</option>
+            @for (t of types; track t.value) {
+              <option [value]="t.value">{{ t.label }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date prévue <span class="required">*</span></label>
+          <input class="form-control" type="date" formControlName="datePrevue" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date de fin prévue</label>
+          <input class="form-control" type="date" formControlName="dateFinPrevue" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" formControlName="description" rows="3"
+                  placeholder="Contexte, objectifs particuliers…"></textarea>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section-title">Compétences requises <span class="required">*</span></h3>
+      <p class="form-hint">Sélectionnées automatiquement selon le type. Vous pouvez les ajuster.</p>
+      <div class="comp-toggle-group">
+        @for (c of allCompetences; track c) {
+          <button type="button" class="comp-toggle" [class.active]="hasComp(c)" (click)="toggleComp(c)">
+            {{ c }}
+          </button>
+        }
+      </div>
+      @if (selectedCompetences().length === 0) {
+        <div class="warning-box" style="margin-top:.75rem;">
+          Au moins une compétence est requise.
+        </div>
+      }
+    </div>
+
+    <div class="form-footer">
+      <a class="btn btn-secondary" routerLink="/interventions">Annuler</a>
+      <button type="submit" class="btn btn-primary"
+              [disabled]="form.invalid || selectedCompetences().length === 0 || loading()">
+        @if (loading()) { Création en cours… } @else { Créer et affecter l'équipe }
+      </button>
+    </div>
+  </form>
+</div>

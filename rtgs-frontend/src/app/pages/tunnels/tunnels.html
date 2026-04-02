@@ -1,0 +1,102 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Tunnels</h1>
+    <p class="page-subtitle">Référentiel des {{ tunnels().length }} tunnels gérés par BETuF</p>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="filters-bar" style="margin-bottom:1rem;">
+  <input class="form-control" style="width:260px;" placeholder="Rechercher par nom, département…"
+         [value]="searchText()" (input)="searchText.set($any($event.target).value)" />
+  <select class="form-control" style="width:160px;" [value]="filtreStatut()"
+          (change)="filtreStatut.set($any($event.target).value)">
+    <option value="">Tous</option>
+    <option value="ACTIF">Actif</option>
+    <option value="FERME">Fermé</option>
+    <option value="EN_TRAVAUX">En travaux</option>
+  </select>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">Chargement…</div>
+} @else {
+  <div class="tunnels-layout">
+    <!-- LIST -->
+    <div class="tunnels-list">
+      @for (t of filtered(); track t.id) {
+        <div class="tunnel-card" [class.selected]="selected()?.id === t.id" (click)="select(t)">
+          <div class="tunnel-card-header">
+            <span class="tunnel-name">{{ t.libelle }}</span>
+            <span class="status-pill" [class]="statutClass(t)">{{ statutLabel(t) }}</span>
+          </div>
+          <div class="tunnel-card-meta">
+            <span>{{ t.departement }}</span>
+            <span>{{ t.longueur | number:'1.0-0' }} m</span>
+            <span>{{ t.nbTubes }} tube(s)</span>
+            <span>{{ t.type }}</span>
+          </div>
+          <div class="tunnel-card-visit">
+            Dernière visite : {{ t.dateDerniereVisite | date:'dd/MM/yyyy' }}
+            <span class="visit-days">({{ daysSinceVisit(t) }} j)</span>
+          </div>
+        </div>
+      }
+      @if (filtered().length === 0) {
+        <div class="empty-state">Aucun tunnel trouvé</div>
+      }
+    </div>
+
+    <!-- HISTORIQUE PANEL -->
+    @if (selected(); as t) {
+      <div class="tunnel-historique">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">{{ t.libelle }}</span>
+            <button class="btn btn-secondary btn-sm" (click)="exportCsv(t)">⬇ CSV</button>
+          </div>
+          <div class="card-body detail-list">
+            <div class="detail-row"><span class="detail-key">Département</span><span>{{ t.departement }}</span></div>
+            <div class="detail-row"><span class="detail-key">Longueur</span><span>{{ t.longueur | number:'1.0-0' }} m</span></div>
+            <div class="detail-row"><span class="detail-key">Tubes</span><span>{{ t.nbTubes }}</span></div>
+            <div class="detail-row"><span class="detail-key">Type</span><span>{{ t.type }}</span></div>
+            <div class="detail-row"><span class="detail-key">Statut</span><span>{{ t.statut }}</span></div>
+            <div class="detail-row"><span class="detail-key">Dernière visite</span><span>{{ t.dateDerniereVisite | date:'dd/MM/yyyy' }}</span></div>
+            <div class="detail-row"><span class="detail-key">Conformité</span>
+              <span class="status-pill" [class]="statutClass(t)">{{ statutLabel(t) }}</span>
+            </div>
+          </div>
+
+          <div class="card-header" style="margin-top:1rem;">
+            <span class="card-title">Historique des interventions</span>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table data-table--sm">
+              <thead>
+                <tr>
+                  <th>Référence</th>
+                  <th>Type</th>
+                  <th>Date</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of historique(); track h.id) {
+                  <tr>
+                    <td>{{ h.reference }}</td>
+                    <td>{{ h.typeLibelle }}</td>
+                    <td>{{ h.datePrevue | date:'dd/MM/yyyy' }}</td>
+                    <td><span class="status-pill" [class]="'status-pill--' + h.statut?.toLowerCase()">{{ h.statut }}</span></td>
+                  </tr>
+                }
+                @if (historique().length === 0) {
+                  <tr><td colspan="4" class="empty-state">Aucun historique</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+}

@@ -1,0 +1,143 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Affectation de l'équipe</h1>
+    @if (intervention(); as i) {
+      <p class="page-subtitle">{{ i.reference }} — {{ i.tunnel?.libelle }}</p>
+    }
+  </div>
+  <a class="btn btn-secondary" routerLink="/interventions">← Retour</a>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">Chargement…</div>
+} @else {
+  <div class="affectation-layout">
+    <!-- LEFT: Récap + équipe sélectionnée -->
+    <div class="affectation-left">
+      @if (intervention(); as i) {
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header"><span class="card-title">Intervention</span></div>
+          <div class="card-body detail-list">
+            <div class="detail-row"><span class="detail-key">Référence</span><span>{{ i.reference }}</span></div>
+            <div class="detail-row"><span class="detail-key">Tunnel</span><span>{{ i.tunnel?.libelle }}</span></div>
+            <div class="detail-row"><span class="detail-key">Type</span><span>{{ i.typeLibelle }}</span></div>
+            <div class="detail-row"><span class="detail-key">Date prévue</span><span>{{ i.datePrevue | date:'dd/MM/yyyy' }}</span></div>
+          </div>
+        </div>
+      }
+
+      <!-- COMPÉTENCES -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="card-header"><span class="card-title">Compétences requises</span></div>
+        <div class="card-body">
+          <div class="comp-chips">
+            @for (c of competencesCouverts(); track c.comp) {
+              <span class="comp-chip" [class.comp-chip--ok]="c.ok" [class.comp-chip--missing]="!c.ok">
+                {{ c.ok ? '✓' : '✗' }} {{ c.comp }}
+              </span>
+            }
+          </div>
+          @if (!allCompsCovered() && selectedIds().length > 0) {
+            <div class="warning-box" style="margin-top:.75rem;">
+              Des compétences requises ne sont pas couvertes par l'équipe sélectionnée.
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- ÉQUIPE SÉLECTIONNÉE -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Équipe ({{ selectedIds().length }})</span>
+        </div>
+        <div class="card-body">
+          @if (!hasChefMission() && selectedIds().length > 0) {
+            <div class="warning-box" style="margin-bottom:.75rem;">
+              ⚠ Aucun chef de mission désigné. Cliquez sur "★" pour en désigner un.
+            </div>
+          }
+          @for (u of teamSelected(); track u.id) {
+            <div class="team-member">
+              <div class="avatar-sm">{{ u.nomComplet[0] }}</div>
+              <div class="team-info">
+                <span class="team-name">{{ u.nomComplet }}</span>
+                <span class="team-pole">{{ u.pole }}</span>
+              </div>
+              @if (isChef(u.id)) {
+                <span class="chef-badge">★ Chef de mission</span>
+              } @else if (canEdit) {
+                <button class="btn-set-chef" title="Désigner comme chef de mission" (click)="setChefMission(u.id)">
+                  ☆ Désigner CDM
+                </button>
+              }
+            </div>
+          }
+          @if (selectedIds().length === 0) {
+            <div class="empty-state">Aucun intervenant sélectionné</div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Intervenants disponibles -->
+    <div class="affectation-right">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Intervenants disponibles</span>
+          <span class="card-badge">{{ intervenants().length }}</span>
+        </div>
+        <div class="card-body" style="padding:0;">
+          @for (u of intervenants(); track u.id) {
+            <div class="intervenant-row"
+                 [class.selected]="isSelected(u.id)"
+                 [class.indispo]="u.disponibilite === 'INDISPONIBLE'"
+                 (click)="toggleUser(u)">
+              <div class="avatar-sm">{{ u.nomComplet[0] }}</div>
+              <div class="intervenant-info">
+                <span class="intervenant-name">
+                  {{ u.nomComplet }}
+                  @if (isChef(u.id)) { <span class="chef-inline">★ CDM</span> }
+                </span>
+                <div class="comp-chips" style="margin-top:.25rem;">
+                  @for (c of (u.competencesList || []); track c) {
+                    <span class="comp-chip comp-chip--sm">{{ c }}</span>
+                  }
+                </div>
+              </div>
+              <div class="intervenant-meta">
+                <span class="dispo-badge" [class]="dispoClass(u.disponibilite)">{{ u.disponibilite }}</span>
+                <span class="missions-count">{{ u.nbMissionsActives }} mission(s)</span>
+              </div>
+              @if (isSelected(u.id)) { <span class="check-icon">✓</span> }
+            </div>
+
+            <!-- CONFLIT PANEL -->
+            @if (isSelected(u.id) && getConflit(u.id)?.aConflit) {
+              <div class="conflit-panel">
+                <div class="conflit-title">⚡ Conflit avec {{ getConflit(u.id)?.interventionEnConflit?.reference }}</div>
+                <div class="conflit-options">
+                  <div class="conflit-option"><span class="option-label">A</span> {{ getConflit(u.id)?.optionDecaler || 'Décaler intervention existante' }}</div>
+                  <div class="conflit-option"><span class="option-label">B</span> Remplacer par un intervenant alternatif</div>
+                  <div class="conflit-option"><span class="option-label">C</span> Maintenir (chevauchement accepté)</div>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+      @if (canEdit) {
+        <div style="display:flex; justify-content:flex-end; gap:.75rem; margin-top:1rem; align-items:center;">
+          @if (!hasChefMission() && selectedIds().length > 0) {
+            <span style="color:var(--orange); font-size:12px;">Chef de mission requis</span>
+          }
+          <button class="btn btn-primary"
+                  [disabled]="!canConfirm() || saving()"
+                  (click)="confirmerAffectation()">
+            @if (saving()) { Affectation en cours… } @else { Confirmer l'affectation }
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+}

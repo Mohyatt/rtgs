@@ -1,0 +1,177 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Interventions</h1>
+    <p class="page-subtitle">Gestion des missions de surveillance et d'expertise</p>
+  </div>
+  @if (canCreate) {
+    <a class="btn btn-primary" routerLink="/interventions/nouvelle">+ Nouvelle intervention</a>
+  }
+</div>
+
+<!-- FILTERS -->
+<div class="card" style="margin-bottom:1rem; padding:1rem;">
+  <div style="display:flex; flex-wrap:wrap; gap:.5rem; align-items:end;">
+    <div style="flex:1; min-width:200px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Recherche</label>
+      <input class="form-control" placeholder="Référence, tunnel, responsable…"
+             [value]="searchText()" (input)="searchText.set($any($event.target).value)" />
+    </div>
+    <div style="min-width:160px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Statut</label>
+      <select class="form-control" [value]="filtreStatut()" (change)="setFiltre('statut', $any($event.target).value)">
+        <option value="">Tous</option>
+        <option value="BROUILLON">Brouillon</option>
+        <option value="PLANIFIEE">Planifiée</option>
+        <option value="EN_COURS">En cours</option>
+        <option value="SUSPENDUE">Suspendue</option>
+        <option value="A_CLOTURER">À clôturer</option>
+        <option value="CLOTUREE">Clôturée</option>
+        <option value="ANNULEE">Annulée</option>
+      </select>
+    </div>
+    <div style="min-width:200px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Type</label>
+      <select class="form-control" [value]="filtreType()" (change)="setFiltre('type', $any($event.target).value)">
+        <option value="">Tous les types</option>
+        @for (t of types; track t.value) {
+          <option [value]="t.value">{{ t.label }}</option>
+        }
+      </select>
+    </div>
+    <div style="min-width:120px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Retard</label>
+      <select class="form-control" [value]="filtreRetard()" (change)="setFiltre('retard', $any($event.target).value)">
+        <option value="">Tous</option>
+        <option value="oui">En retard</option>
+        <option value="non">À jour</option>
+      </select>
+    </div>
+    <div style="min-width:150px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Date début (du)</label>
+      <input type="date" class="form-control" [value]="filtreDateFrom()" (change)="setFiltre('dateFrom', $any($event.target).value)" />
+    </div>
+    <div style="min-width:150px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Date fin (au)</label>
+      <input type="date" class="form-control" [value]="filtreDateTo()" (change)="setFiltre('dateTo', $any($event.target).value)" />
+    </div>
+    <div style="min-width:140px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Compétence</label>
+      <input class="form-control" placeholder="Ex: SECURITE" [value]="filtreCompetence()" (input)="setFiltre('competence', $any($event.target).value)" />
+    </div>
+    @if (hasActiveFilters) {
+      <button class="btn btn-secondary btn-sm" style="height:36px;" (click)="resetFilters()">Effacer filtres</button>
+    }
+  </div>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">Chargement…</div>
+} @else {
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Référence</th>
+            <th>Tunnel</th>
+            <th>Type</th>
+            <th>Statut</th>
+            <th>Date prévue</th>
+            <th>Chargé de mission</th>
+            <th>Chef de mission</th>
+            <th>Compétences</th>
+            <th>Équipe</th>
+            @if (role === 'INGENIEUR') {
+              <th>Mon rôle</th>
+            }
+            @if (!isReadOnly) {
+              <th>Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (i of filtered(); track i.id) {
+            <tr [class.row--retard]="isEnRetard(i)">
+              <td>
+                <a [routerLink]="['/interventions', i.id, 'affectation']" class="link-ref">{{ i.reference }}</a>
+                @if (isEnRetard(i)) {
+                  <span class="badge badge-red" style="margin-left:.5rem; font-size:.65rem;">RETARD</span>
+                }
+              </td>
+              <td>{{ i.tunnel?.libelle }}</td>
+              <td style="font-size:.8rem;">{{ i.typeLibelle }}</td>
+              <td><span class="status-pill" [class]="statutClass(i.statut)">{{ statutLabel(i.statut) }}</span></td>
+              <td>{{ i.datePrevue | date:'dd/MM/yyyy' }}</td>
+              <td style="font-size:.85rem;">{{ getChargeMission(i) }}</td>
+              <td style="font-size:.85rem;">{{ getChefMission(i) }}</td>
+              <td>
+                <div class="comp-chips">
+                  @for (comp of (i.competencesRequises || '').split(','); track comp) {
+                    @if (comp.trim()) {
+                      <span class="comp-chip">{{ comp.trim() }}</span>
+                    }
+                  }
+                </div>
+              </td>
+              <td>
+                <div class="avatar-row">
+                  @for (a of (i.affectations || []).slice(0, 3); track a.utilisateurId) {
+                    <div class="avatar-sm" [title]="a.nomComplet + ' (' + a.role + ')'">{{ a.nomComplet[0] }}</div>
+                  }
+                  @if ((i.affectations || []).length === 0) {
+                    <span style="color:var(--text-muted); font-size:.8rem;">Non affectée</span>
+                  }
+                </div>
+              </td>
+              @if (role === 'INGENIEUR') {
+                <td>
+                  <span class="status-pill" [class]="isChefMission(i) ? 'status-pill--en-cours' : 'status-pill--planifiee'">
+                    {{ i.monRole || 'Intervenant' }}
+                  </span>
+                </td>
+              }
+              @if (!isReadOnly) {
+                <td>
+                  <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+                    @if (canModify(i)) {
+                      <a [routerLink]="['/interventions', i.id, 'modifier']" class="btn btn-secondary btn-sm">Modifier</a>
+                    }
+                    @if (canEdit && (i.statut === 'BROUILLON' || i.statut === 'PLANIFIEE')) {
+                      <a [routerLink]="['/interventions', i.id, 'affectation']" class="btn btn-primary btn-sm">Équipe</a>
+                    }
+                    @if (canCloturer(i)) {
+                      <a [routerLink]="['/interventions', i.id, 'compte-rendu']" class="btn btn-primary btn-sm">Clôturer</a>
+                    }
+                    @if (canDemarrer(i)) {
+                      <button class="btn btn-primary btn-sm" (click)="demarrerIntervention(i)">
+                        {{ i.statut === 'SUSPENDUE' ? 'Reprendre' : 'Démarrer' }}
+                      </button>
+                    }
+                    @if (canSoumettreRapport(i)) {
+                      <button class="btn btn-secondary btn-sm" (click)="goToRapport(i)">Rapport</button>
+                    }
+                    @if (canSuspendre(i)) {
+                      <button class="btn btn-sm" style="background:var(--orange);color:#fff;" (click)="suspendreIntervention(i)">Suspendre</button>
+                    }
+                    @if (canReprendre(i)) {
+                      <button class="btn btn-primary btn-sm" (click)="reprendreIntervention(i)">Reprendre</button>
+                    }
+                    @if (canAnnuler(i)) {
+                      <button class="btn btn-sm" style="background:var(--red);color:#fff;" (click)="annulerIntervention(i)">Annuler</button>
+                    }
+                  </div>
+                </td>
+              }
+            </tr>
+          }
+          @if (filtered().length === 0) {
+            <tr><td [attr.colspan]="isReadOnly ? 9 : 10" class="empty-state">Aucune intervention trouvée</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:.75rem 1rem; border-top:1px solid var(--border); font-size:.8rem; color:var(--text-muted);">
+      {{ filtered().length }} intervention(s) affichée(s)
+    </div>
+  </div>
+}

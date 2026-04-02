@@ -1,0 +1,70 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Modifier l'intervention</h1>
+    @if (intervention(); as i) {
+      <p class="page-subtitle">{{ i.reference }} — {{ i.tunnel?.libelle }}</p>
+    }
+  </div>
+  <a class="btn btn-secondary" routerLink="/interventions">← Retour</a>
+</div>
+
+@if (loadingData()) {
+  <div class="loading-state">Chargement…</div>
+} @else {
+  <div class="form-card" style="max-width:780px;">
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="form-section">
+        <h3 class="form-section-title">Informations modifiables</h3>
+
+        @if (intervention(); as i) {
+          <div style="margin-bottom:1rem; padding:.75rem 1rem; border-radius:8px; background:var(--surface-2); display:flex; gap:2rem; flex-wrap:wrap; font-size:.875rem;">
+            <div><strong>Tunnel :</strong> {{ i.tunnel?.libelle }}</div>
+            <div><strong>Type :</strong> {{ i.typeLibelle }}</div>
+            <div><strong>Statut :</strong> {{ i.statut }}</div>
+          </div>
+        }
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date prévue <span class="required">*</span></label>
+            <input class="form-control" type="date" formControlName="datePrevue" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date de fin prévue</label>
+            <input class="form-control" type="date" formControlName="dateFinPrevue" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-control" formControlName="description" rows="3"
+                    placeholder="Contexte, objectifs particuliers…"></textarea>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section-title">Compétences requises <span class="required">*</span></h3>
+        <div class="comp-toggle-group">
+          @for (c of allCompetences; track c) {
+            <button type="button" class="comp-toggle" [class.active]="hasComp(c)" (click)="toggleComp(c)">
+              {{ c }}
+            </button>
+          }
+        </div>
+        @if (selectedCompetences().length === 0) {
+          <div class="warning-box" style="margin-top:.75rem;">
+            Au moins une compétence est requise.
+          </div>
+        }
+      </div>
+
+      <div class="form-footer">
+        <a class="btn btn-secondary" routerLink="/interventions">Annuler</a>
+        <button type="submit" class="btn btn-primary"
+                [disabled]="form.invalid || selectedCompetences().length === 0 || loading()">
+          @if (loading()) { Enregistrement… } @else { Enregistrer les modifications }
+        </button>
+      </div>
+    </form>
+  </div>
+}

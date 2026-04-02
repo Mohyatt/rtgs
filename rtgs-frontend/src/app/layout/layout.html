@@ -1,0 +1,92 @@
+<div class="app-shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" [class.sidebar--collapsed]="!sidebarOpen()">
+    <div class="sidebar-brand">
+      <span class="logo-text"><span class="logo-rt">RT</span><span class="logo-g">G</span><span class="logo-rt">S</span></span>
+      @if (sidebarOpen()) {
+        <span class="brand-name">BETuF</span>
+      }
+    </div>
+
+    <nav class="sidebar-nav">
+      @for (item of visibleNavItems(); track item.path) {
+        <a class="nav-item" [routerLink]="item.path" routerLinkActive="active">
+          <span class="nav-icon">{{ item.icon }}</span>
+          @if (sidebarOpen()) {
+            <span class="nav-label">{{ item.label }}</span>
+          }
+        </a>
+      }
+    </nav>
+
+    <div class="sidebar-footer">
+      <a class="nav-item" href="/portail" target="_blank">
+        <span class="nav-icon">🌐</span>
+        @if (sidebarOpen()) {
+          <span class="nav-label">Portail public</span>
+        }
+      </a>
+      <button class="nav-item logout-btn" (click)="logout()">
+        <span class="nav-icon">⏻</span>
+        @if (sidebarOpen()) {
+          <span class="nav-label">Déconnexion</span>
+        }
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-toggle" (click)="toggleSidebar()">☰</button>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-clock">
+          <span class="clock-time">{{ currentTime() }}</span>
+          <span class="clock-date">{{ currentDate() }}</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-notif" (click)="toggleNotif()">
+          <span class="notif-icon">🔔</span>
+          <span class="badge badge-red">3</span>
+          @if (notifOpen()) {
+            <div class="notif-dropdown">
+              <div class="notif-header">Notifications</div>
+              <div class="notif-item notif-item--critique">
+                <span class="notif-dot dot-red"></span>
+                <span>Tunnel du Fréjus — 387 jours sans visite</span>
+              </div>
+              <div class="notif-item notif-item--critique">
+                <span class="notif-dot dot-red"></span>
+                <span>Tunnel de l'Épine — 421 jours sans visite</span>
+              </div>
+              <div class="notif-item notif-item--info">
+                <span class="notif-dot dot-orange"></span>
+                <span>INT-2026-0098 — compte rendu manquant</span>
+              </div>
+              <a class="notif-footer" routerLink="/alertes" (click)="notifOpen.set(false)">Voir toutes les alertes →</a>
+            </div>
+          }
+        </div>
+        <div class="topbar-user">
+          <div class="user-avatar">{{ userInitials() }}</div>
+          @if (user()) {
+            <div class="user-info">
+              <span class="user-name">{{ user()!.nomComplet }}</span>
+              <span class="user-role">{{ roleLabel() }}</span>
+            </div>
+          }
+          <span class="role-badge">{{ roleCode() }}</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- PAGE CONTENT -->
+    <main class="page-content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

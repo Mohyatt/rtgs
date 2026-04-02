@@ -1,0 +1,139 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Compte rendu d'intervention</h1>
+    @if (intervention(); as i) {
+      <p class="page-subtitle">{{ i.reference }} — {{ i.tunnel?.libelle }}</p>
+    }
+  </div>
+  <a class="btn btn-secondary" routerLink="/interventions">← Retour</a>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">Chargement…</div>
+} @else {
+  <div class="cr-layout">
+    <!-- LEFT: Formulaire -->
+    <div class="cr-main">
+      @if (intervention()?.statut === 'A_CLOTURER' && (intervention()?.resume || intervention()?.recommandations)) {
+        <div class="card" style="margin-bottom:1rem; border-left:4px solid var(--blue);">
+          <div class="card-header"><span class="card-title">Rapport du chef de mission</span></div>
+          <div class="card-body">
+            <div style="margin-bottom:.75rem;">
+              <strong>Résumé :</strong>
+              <p style="margin:.25rem 0; white-space:pre-wrap;">{{ intervention()?.resume }}</p>
+            </div>
+            @if (intervention()?.recommandations) {
+              <div>
+                <strong>Recommandations :</strong>
+                <p style="margin:.25rem 0; white-space:pre-wrap;">{{ intervention()?.recommandations }}</p>
+              </div>
+            }
+          </div>
+        </div>
+      }
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <!-- GÉNÉRAL -->
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header"><span class="card-title">Informations générales</span></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Date de réalisation <span class="required">*</span></label>
+                <input class="form-control" type="date" formControlName="dateRealisation" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Résumé de l'intervention <span class="required">*</span></label>
+              <textarea class="form-control" formControlName="resume" rows="4"
+                        placeholder="Description des travaux effectués, observations…"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Recommandations</label>
+              <textarea class="form-control" formControlName="recommandations" rows="3"
+                        placeholder="Actions correctives recommandées, points de vigilance…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- NON-CONFORMITÉS -->
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header">
+            <span class="card-title">Non-conformités ({{ ncArray.length }})</span>
+            <button type="button" class="btn btn-secondary btn-sm" (click)="addNC()">+ Ajouter</button>
+          </div>
+          <div class="card-body">
+            @if (hasCritique()) {
+              <div class="warning-box warning-box--critique" style="margin-bottom:1rem;">
+                ⚠ Non-conformité(s) CRITIQUE détectée(s). Un correctif sera automatiquement planifié à la clôture.
+              </div>
+            }
+            <div formArrayName="nonConformites">
+              @for (nc of ncArray.controls; track $index; let i = $index) {
+                <div class="nc-row" [formGroupName]="i">
+                  <div class="nc-header">
+                    <span class="nc-num">NC {{ i + 1 }}</span>
+                    <select class="form-control form-control--sm" formControlName="gravite"
+                            (change)="checkCritique()">
+                      <option value="MINEUR">Mineur</option>
+                      <option value="MAJEUR">Majeur</option>
+                      <option value="CRITIQUE">Critique</option>
+                    </select>
+                    <button type="button" class="btn-icon-danger" (click)="removeNC(i)">✕</button>
+                  </div>
+                  <textarea class="form-control" formControlName="description" rows="2"
+                            placeholder="Description de la non-conformité…"></textarea>
+                  <div class="form-row" style="margin-top:.5rem;">
+                    <div class="form-group">
+                      <label class="form-label">Délai correction (jours)</label>
+                      <input class="form-control form-control--sm" type="number" formControlName="delaiCorrectionJours" min="1" />
+                    </div>
+                  </div>
+                </div>
+              }
+              @if (ncArray.length === 0) {
+                <div class="empty-state">Aucune non-conformité — cliquez sur "+ Ajouter" si nécessaire</div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button type="button" class="btn btn-secondary" routerLink="/interventions">Annuler</button>
+          <button type="submit" class="btn btn-primary" [disabled]="form.invalid || saving()">
+            @if (saving()) { Clôture en cours… } @else { Clôturer l'intervention }
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- RIGHT: Récap sticky -->
+    <div class="cr-sidebar">
+      <div class="card sticky-card">
+        <div class="card-header"><span class="card-title">Récapitulatif</span></div>
+        @if (intervention(); as i) {
+          <div class="card-body detail-list">
+            <div class="detail-row"><span class="detail-key">Référence</span><span>{{ i.reference }}</span></div>
+            <div class="detail-row"><span class="detail-key">Tunnel</span><span>{{ i.tunnel?.libelle }}</span></div>
+            <div class="detail-row"><span class="detail-key">Type</span><span>{{ i.typeLibelle }}</span></div>
+            <div class="detail-row"><span class="detail-key">Équipe</span>
+              <div>
+                @for (a of i.affectations; track a.utilisateurId) {
+                  <div>{{ a.nomComplet }} <small>({{ a.role }})</small></div>
+                }
+              </div>
+            </div>
+            <div class="detail-row"><span class="detail-key">NC saisies</span>
+              <span [class.text-danger]="ncArray.length > 0">{{ ncArray.length }}</span>
+            </div>
+            @if (hasCritique()) {
+              <div class="detail-row">
+                <span class="detail-key">Correctif</span>
+                <span class="badge badge-red">Auto-planifié</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

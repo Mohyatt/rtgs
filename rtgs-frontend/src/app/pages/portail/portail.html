@@ -1,0 +1,54 @@
+<div class="portail-page">
+  <header class="portail-header">
+    <div class="portail-brand">
+      <span class="logo-text"><span class="logo-rt">RT</span><span class="logo-g">G</span><span class="logo-rt">S</span></span>
+      <div class="portail-title">Portail public — BETuF</div>
+      <div class="portail-subtitle">Bureau d'Étude des Tunnels de France</div>
+    </div>
+    <a class="btn btn-secondary" href="/login">Espace professionnel →</a>
+  </header>
+
+  <main class="portail-content">
+    <div class="portail-intro">
+      <h2>Conformité des tunnels routiers</h2>
+      <p>Consultez le statut de conformité réglementaire des tunnels gérés par BETuF. Ces informations sont mises à jour après chaque intervention de surveillance.</p>
+    </div>
+
+    <div class="filters-bar" style="margin-bottom:1.5rem;">
+      <input class="form-control" style="width:300px;" placeholder="Rechercher un tunnel…"
+             [value]="searchText()" (input)="searchText.set($any($event.target).value)" />
+    </div>
+
+    @if (loading()) {
+      <div class="loading-state">Chargement…</div>
+    } @else {
+      <div class="portail-grid">
+        @for (t of filtered(); track t.id) {
+          <div class="portail-tunnel-card">
+            <div class="portail-tunnel-header">
+              <span class="portail-tunnel-name">{{ t.libelle }}</span>
+              <span class="status-pill" [class]="conformiteClass(t.statutConformite)">
+                {{ conformiteLabel(t.statutConformite) }}
+              </span>
+            </div>
+            <div class="portail-tunnel-details">
+              <span>{{ t.departement }}</span>
+              <span>{{ t.longueur | number:'1.0-0' }} m</span>
+              <span>{{ t.type }}</span>
+            </div>
+            <div class="portail-tunnel-visit">
+              Dernière surveillance : {{ t.dateDerniereVisite | date:'MMMM yyyy':'':'fr' }}
+            </div>
+          </div>
+        }
+        @if (filtered().length === 0) {
+          <div class="empty-state">Aucun tunnel trouvé</div>
+        }
+      </div>
+    }
+  </main>
+
+  <footer class="portail-footer">
+    <p>© {{ 2026 }} BETuF — Bureau d'Étude des Tunnels de France. Données à titre indicatif.</p>
+  </footer>
+</div>
