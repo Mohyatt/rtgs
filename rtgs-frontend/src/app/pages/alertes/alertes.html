@@ -1,23 +1,28 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Alertes</h1>
-    <p class="page-subtitle">Surveillance réglementaire et opérationnelle des tunnels</p>
+    @if (isAdmin) {
+      <p class="page-subtitle">Alertes critiques tunnels — à assigner aux chargés de mission</p>
+    } @else {
+      <p class="page-subtitle">Alertes sur vos interventions — à acquitter directement</p>
+    }
   </div>
-  @if (canTraiter) {
+  @if (isAdmin) {
     <button class="btn btn-secondary" (click)="calculer()">↻ Recalculer</button>
   }
 </div>
 
 @if (isCdm) {
   <div class="tabs-bar" style="margin-bottom:1.5rem; display:flex; gap:.5rem;">
-    <button class="btn" [class.btn-primary]="activeTab() === 'mes-alertes'" [class.btn-secondary]="activeTab() !== 'mes-alertes'"
-            (click)="activeTab.set('mes-alertes')">Mes alertes assignées</button>
     <button class="btn" [class.btn-primary]="activeTab() === 'systeme'" [class.btn-secondary]="activeTab() !== 'systeme'"
-            (click)="activeTab.set('systeme')">Alertes système</button>
+            (click)="activeTab.set('systeme')">Alertes de mes interventions</button>
+    <button class="btn" [class.btn-primary]="activeTab() === 'mes-alertes'" [class.btn-secondary]="activeTab() !== 'mes-alertes'"
+            (click)="activeTab.set('mes-alertes'); loadMesAlertes()">Alertes critiques assignées</button>
   </div>
 }
 
 @if (isCdm && activeTab() === 'mes-alertes') {
+  <!-- ALERTES CRITIQUES ASSIGNÉES PAR L'ADMIN -->
   <div class="card">
     <div class="table-wrapper">
       <table class="data-table">
@@ -36,7 +41,7 @@
         <tbody>
           @for (a of mesAlertes(); track a.id) {
             <tr [class.row--critique]="a.niveau === 'CRITIQUE'">
-              <td><span class="alert-badge" [class]="niveauClass(a.niveau)">{{ a.niveau }}</span></td>
+              <td><span class="alert-badge" [class]="niveauClass(a.niveau)">{{ niveauLabel(a.niveau) }}</span></td>
               <td>
                 <span class="tag" [class]="objetClass(a.objetType)">{{ a.objetType }}</span>
                 <span style="margin-left:.5rem;">{{ a.objetLibelle }}</span>
@@ -59,7 +64,7 @@
               <td>
                 @if (a.statut === 'ASSIGNEE') {
                   <button class="btn btn-primary btn-sm" (click)="creerInterventionDepuisAlerte(a)">
-                    Créer intervention
+                    @if (a.niveau === 'NC_CRITIQUE') { Planifier l'intervention } @else { Créer intervention }
                   </button>
                 } @else {
                   <span style="color: var(--green);">✓ Traitée</span>
@@ -68,7 +73,7 @@
             </tr>
           }
           @if (mesAlertes().length === 0) {
-            <tr><td colspan="8" class="empty-state">Aucune alerte assignée</td></tr>
+            <tr><td colspan="8" class="empty-state">Aucune alerte critique assignée</td></tr>
           }
         </tbody>
       </table>
@@ -77,18 +82,32 @@
 } @else {
   <!-- KPI STRIP -->
   <div class="kpi-strip" style="margin-bottom:1.5rem;">
-    <div class="kpi-mini kpi-mini--critique" (click)="filtreNiveau.set('CRITIQUE')">
-      <span class="kpi-mini-val">{{ critiques() }}</span>
-      <span class="kpi-mini-label">Critiques</span>
-    </div>
-    <div class="kpi-mini kpi-mini--preventif" (click)="filtreNiveau.set('PREVENTIF')">
-      <span class="kpi-mini-val">{{ preventives() }}</span>
-      <span class="kpi-mini-label">Préventives</span>
-    </div>
-    <div class="kpi-mini kpi-mini--info" (click)="filtreNiveau.set('INFO')">
-      <span class="kpi-mini-val">{{ infos() }}</span>
-      <span class="kpi-mini-label">Informations</span>
-    </div>
+    @if (isAdmin) {
+      <div class="kpi-mini kpi-mini--critique" (click)="filtreNiveau.set('')">
+        <span class="kpi-mini-val">{{ critiques() }}</span>
+        <span class="kpi-mini-label">Alertes critiques</span>
+      </div>
+      @if (ncCritiques() > 0) {
+        <div class="kpi-mini kpi-mini--critique" (click)="filtreNiveau.set('NC_CRITIQUE')"
+             style="border-left: 3px solid #dc2626;">
+          <span class="kpi-mini-val">{{ ncCritiques() }}</span>
+          <span class="kpi-mini-label">NC critiques</span>
+        </div>
+      }
+    } @else {
+      <div class="kpi-mini kpi-mini--preventif" (click)="filtreNiveau.set('PREVENTIF')">
+        <span class="kpi-mini-val">{{ preventives() }}</span>
+        <span class="kpi-mini-label">Préventives</span>
+      </div>
+      <div class="kpi-mini kpi-mini--conflit" (click)="filtreNiveau.set('CONFLIT')">
+        <span class="kpi-mini-val">{{ conflits() }}</span>
+        <span class="kpi-mini-label">Conflits planning</span>
+      </div>
+      <div class="kpi-mini kpi-mini--info" (click)="filtreNiveau.set('INFO')">
+        <span class="kpi-mini-val">{{ infos() }}</span>
+        <span class="kpi-mini-label">Informations</span>
+      </div>
+    }
   </div>
 
   <!-- FILTER -->
@@ -97,9 +116,14 @@
             [value]="filtreNiveau()"
             (change)="filtreNiveau.set($any($event.target).value)">
       <option value="">Tous les niveaux</option>
-      <option value="CRITIQUE">Critique</option>
-      <option value="PREVENTIF">Préventif</option>
-      <option value="INFO">Information</option>
+      @if (isAdmin) {
+        <option value="CRITIQUE">Critique tunnel</option>
+        <option value="NC_CRITIQUE">NC Critique</option>
+      } @else {
+        <option value="PREVENTIF">Préventif / Retard</option>
+        <option value="CONFLIT">Conflit de planning</option>
+        <option value="INFO">Information</option>
+      }
     </select>
     @if (filtreNiveau()) {
       <button class="btn btn-secondary" (click)="filtreNiveau.set('')">Réinitialiser</button>
@@ -125,7 +149,7 @@
           <tbody>
             @for (a of alertesFiltrees(); track a.id) {
               <tr [class.row--critique]="a.niveau === 'CRITIQUE'">
-                <td><span class="alert-badge" [class]="niveauClass(a.niveau)">{{ a.niveau }}</span></td>
+                <td><span class="alert-badge" [class]="niveauClass(a.niveau)">{{ niveauLabel(a.niveau) }}</span></td>
                 <td>
                   <span class="tag" [class]="objetClass(a.objetType)">{{ a.objetType }}</span>
                   <span style="margin-left:.5rem;">{{ a.objetLibelle }}</span>
@@ -141,7 +165,11 @@
                 @if (canTraiter) {
                   <td>
                     @if (a.statut === 'ACTIVE') {
-                      <button class="btn btn-primary btn-sm" (click)="traiter(a)">Traiter</button>
+                      @if (isAdmin) {
+                        <button class="btn btn-primary btn-sm" (click)="traiter(a)">Assigner CDM</button>
+                      } @else {
+                        <button class="btn btn-secondary btn-sm" (click)="traiter(a)">Acquitter</button>
+                      }
                     }
                   </td>
                 }

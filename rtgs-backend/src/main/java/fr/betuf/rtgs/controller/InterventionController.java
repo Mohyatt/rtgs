@@ -75,9 +75,41 @@ public class InterventionController {
         return ResponseEntity.ok(interventionService.affecter(id, dtos, u));
     }
 
+    @PutMapping("/{id}/affectations/{ancienUserId}/remplacer")
+    @PreAuthorize("hasRole('CHARGE_MISSION')")
+    public ResponseEntity<InterventionDTO> remplacerMembre(@PathVariable Long id,
+                                                            @PathVariable Long ancienUserId,
+                                                            @RequestBody Map<String, Long> body,
+                                                            HttpServletRequest request) {
+        Utilisateur u = extractUser(request);
+        Long nouvelUserId = body.get("nouvelUserId");
+        if (nouvelUserId == null) throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "nouvelUserId requis");
+        return ResponseEntity.ok(interventionService.remplacerMembre(id, ancienUserId, nouvelUserId, u));
+    }
+
+    @GetMapping("/{id}/verifier-conflits")
+    @PreAuthorize("hasRole('CHARGE_MISSION')")
+    public ResponseEntity<List<InterventionDTO>> verifierConflits(
+            @PathVariable Long id,
+            @RequestParam String datePrevue,
+            @RequestParam(required = false) String dateFinPrevue) {
+        java.time.LocalDate debut = java.time.LocalDate.parse(datePrevue);
+        java.time.LocalDate fin = (dateFinPrevue != null && !dateFinPrevue.isBlank())
+                ? java.time.LocalDate.parse(dateFinPrevue) : null;
+        return ResponseEntity.ok(interventionService.verifierConflitsParDates(id, debut, fin));
+    }
+
     @GetMapping("/{id}/intervenants-disponibles")
     public ResponseEntity<List<UtilisateurDispoDTO>> getIntervenantsDisponibles(@PathVariable Long id) {
         return ResponseEntity.ok(interventionService.getIntervenantsDisponibles(id));
+    }
+
+    @GetMapping("/{id}/intervenants-disponibles/remplacer/{remplacerUserId}")
+    @PreAuthorize("hasRole('CHARGE_MISSION')")
+    public ResponseEntity<List<UtilisateurDispoDTO>> getIntervenantsForRemplacement(
+            @PathVariable Long id, @PathVariable Long remplacerUserId) {
+        return ResponseEntity.ok(interventionService.getIntervenantsDisponiblesForRemplacement(id, remplacerUserId));
     }
 
     @GetMapping("/{id}/conflits/{userId}")

@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class CloturerResponse {
     private InterventionDTO intervention;
     private String referenceCorrectif;
+    private Long correctifId;
 }

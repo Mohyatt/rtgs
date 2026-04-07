@@ -10,7 +10,8 @@ interface AuditLogDTO {
   idObjet: number;
   details: string;
   dateHeure: string;
-  utilisateur?: { nomComplet?: string; nom?: string; prenom?: string };
+  utilisateurNom?: string;
+  utilisateurId?: number;
 }
 
 @Component({

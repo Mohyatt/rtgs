@@ -9,12 +9,13 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AffectationResponseDTO {
+public class AuditLogDTO {
     private Long id;
+    private String typeAction;
+    private Long idObjet;
+    private String typeObjet;
+    private String details;
+    private String dateHeure;
+    private String utilisateurNom;
     private Long utilisateurId;
-    private String nomComplet;
-    private String role;
-    private String pole;
-    private String competences;
-    private String statut;
 }

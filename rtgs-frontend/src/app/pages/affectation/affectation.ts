@@ -4,7 +4,6 @@ import { RouterLink, Router } from '@angular/router';
 import { InterventionService } from '../../services/intervention.service';
 import { InterventionDTO, AffectationRequestDTO } from '../../models/intervention.model';
 import { UtilisateurDispoDTO } from '../../models/utilisateur.model';
-import { ConflitPlanningDTO } from '../../models/kpi.model';
 import { ToastService } from '../../services/toast.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -26,7 +25,6 @@ export class AffectationComponent implements OnInit {
   intervenants = signal<UtilisateurDispoDTO[]>([]);
   selectedIds = signal<number[]>([]);
   chefMissionId = signal<number | null>(null);
-  conflits = signal<Map<number, ConflitPlanningDTO>>(new Map());
   loading = signal(true);
   saving = signal(false);
 
@@ -66,29 +64,12 @@ export class AffectationComponent implements OnInit {
     const id = u.id;
     const isSelected = this.selectedIds().includes(id);
 
-    if (!isSelected && u.disponibilite === 'INDISPONIBLE') {
-      this.toast.show(`${u.nomComplet} est indisponible`, 'warning');
-      return;
-    }
-
-    if (!isSelected && u.disponibilite === 'CONFLIT') {
-      this.service.detecterConflits(Number(this.id), id).subscribe(c => {
-        const map = new Map(this.conflits());
-        map.set(id, c);
-        this.conflits.set(map);
-        this.selectedIds.update(ids => [...ids, id]);
-      });
-    } else if (isSelected) {
+    if (isSelected) {
       this.selectedIds.update(ids => ids.filter(x => x !== id));
-      // If deselecting the chef de mission, clear it
       if (this.chefMissionId() === id) this.chefMissionId.set(null);
     } else {
       this.selectedIds.update(ids => [...ids, id]);
-    }
-
-    // Auto-assign first selected as chef de mission if none set
-    if (!isSelected && this.chefMissionId() === null) {
-      this.chefMissionId.set(id);
+      if (this.chefMissionId() === null) this.chefMissionId.set(id);
     }
   }
 
@@ -97,16 +78,8 @@ export class AffectationComponent implements OnInit {
     this.chefMissionId.set(id);
   }
 
-  getConflit(userId: number): ConflitPlanningDTO | undefined {
-    return this.conflits().get(userId);
-  }
-
   isSelected(id: number) { return this.selectedIds().includes(id); }
   isChef(id: number) { return this.chefMissionId() === id; }
-
-  dispoClass(d: string) {
-    return d === 'DISPONIBLE' ? 'dispo-badge--ok' : d === 'CONFLIT' ? 'dispo-badge--conflit' : 'dispo-badge--indispo';
-  }
 
   confirmerAffectation() {
     if (!this.canEdit || !this.canConfirm()) return;
@@ -115,8 +88,7 @@ export class AffectationComponent implements OnInit {
     const chefId = this.chefMissionId()!;
     const affectations: AffectationRequestDTO[] = this.selectedIds().map(uid => ({
       utilisateurId: uid,
-      role: uid === chefId ? 'Chef de mission' : 'Intervenant',
-      forceConflict: this.getConflit(uid) !== undefined
+      role: uid === chefId ? 'Chef de mission' : 'Intervenant'
     }));
 
     this.service.affecter(Number(this.id), affectations).subscribe({

@@ -6,7 +6,10 @@
       "Bash(ng add:*)",
       "Bash(ng version:*)",
       "Bash(npx ng:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(kill 407228 407301 407545)",
+      "Bash(pkill -f \"spring-boot:run\")",
+      "Bash(pkill -f \"ng serve\")"
     ]
   }
 }

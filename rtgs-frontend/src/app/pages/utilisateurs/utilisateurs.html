@@ -1,8 +1,20 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Utilisateurs</h1>
-    <p class="page-subtitle">Gestion des comptes et des accès</p>
+    <p class="page-subtitle">Gestion des comptes, accès et performances</p>
   </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar" style="margin-bottom:1.5rem; display:flex; gap:.5rem;">
+  <button class="btn" [class.btn-primary]="activeTab() === 'liste'" [class.btn-secondary]="activeTab() !== 'liste'"
+          (click)="activeTab.set('liste')">
+    Liste des utilisateurs
+  </button>
+  <button class="btn" [class.btn-primary]="activeTab() === 'performances'" [class.btn-secondary]="activeTab() !== 'performances'"
+          (click)="activeTab.set('performances')">
+    Performances
+  </button>
 </div>
 
 <!-- FILTERS -->
@@ -22,15 +34,17 @@
         }
       </select>
     </div>
-    <div style="min-width:160px;">
-      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Statut</label>
-      <select class="form-control" [value]="filtreStatut()" (change)="setFiltre('statut', $any($event.target).value)">
-        <option value="">Tous les statuts</option>
-        @for (s of statuts; track s.value) {
-          <option [value]="s.value">{{ s.label }}</option>
-        }
-      </select>
-    </div>
+    @if (activeTab() === 'liste') {
+      <div style="min-width:160px;">
+        <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.25rem;">Statut</label>
+        <select class="form-control" [value]="filtreStatut()" (change)="setFiltre('statut', $any($event.target).value)">
+          <option value="">Tous les statuts</option>
+          @for (s of statuts; track s.value) {
+            <option [value]="s.value">{{ s.label }}</option>
+          }
+        </select>
+      </div>
+    }
     @if (hasActiveFilters) {
       <button class="btn btn-secondary btn-sm" style="height:36px;" (click)="resetFilters()">Effacer filtres</button>
     }
@@ -40,65 +54,235 @@
 @if (loading()) {
   <div class="loading-state">Chargement…</div>
 } @else {
-  <div class="card">
-    <div class="table-wrapper">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Nom complet</th>
-            <th>Email</th>
-            <th>Rôle</th>
-            <th>Statut</th>
-            <th>Pôle</th>
-            <th>Compétences</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (u of filtered(); track u.id) {
-            <tr [style.opacity]="isBlocked(u) ? '0.6' : '1'">
-              <td style="font-weight:500;">{{ u.nomComplet }}</td>
-              <td style="font-size:.85rem;">{{ u.email }}</td>
-              <td>
-                <span class="comp-chip">{{ roleLabel(u.role) }}</span>
-              </td>
-              <td>
-                <span class="status-pill" [class]="statutClass(u.statut)">{{ statutLabel(u.statut) }}</span>
-              </td>
-              <td>{{ u.pole || '—' }}</td>
-              <td>
-                <div class="comp-chips">
-                  @for (c of (u.competences || '').split(','); track c) {
-                    @if (c.trim()) {
-                      <span class="comp-chip">{{ c.trim() }}</span>
-                    }
-                  }
-                  @if (!u.competences) {
-                    <span style="color:var(--text-muted); font-size:.8rem;">—</span>
-                  }
-                </div>
-              </td>
-              <td>
-                <button class="btn btn-sm"
-                        [class]="isBlocked(u) ? 'btn-primary' : 'btn-danger'"
-                        (click)="toggleBlock(u)">
-                  @if (isBlocked(u)) {
-                    Débloquer
-                  } @else {
-                    Bloquer
-                  }
-                </button>
-              </td>
+
+  <!-- ── ONGLET LISTE ── -->
+  @if (activeTab() === 'liste') {
+    <div class="card">
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Nom complet</th>
+              <th>Email</th>
+              <th>Rôle</th>
+              <th>Statut</th>
+              <th>Pôle</th>
+              <th>Compétences</th>
+              <th>Actions</th>
             </tr>
-          }
-          @if (filtered().length === 0) {
-            <tr><td colspan="7" class="empty-state">Aucun utilisateur trouvé</td></tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (u of filtered(); track u.id) {
+              <tr [style.opacity]="isBlocked(u) ? '0.6' : '1'">
+                <td style="font-weight:500;">{{ u.nomComplet }}</td>
+                <td style="font-size:.85rem;">{{ u.email }}</td>
+                <td><span class="comp-chip">{{ roleLabel(u.role) }}</span></td>
+                <td>
+                  <span class="status-pill" [class]="statutClass(u.statut)">{{ statutLabel(u.statut) }}</span>
+                </td>
+                <td>{{ u.pole || '—' }}</td>
+                <td>
+                  <div class="comp-chips">
+                    @for (c of (u.competences || '').split(','); track c) {
+                      @if (c.trim()) { <span class="comp-chip">{{ c.trim() }}</span> }
+                    }
+                    @if (!u.competences) {
+                      <span style="color:var(--text-muted); font-size:.8rem;">—</span>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <button class="btn btn-sm"
+                          [class]="isBlocked(u) ? 'btn-primary' : 'btn-danger'"
+                          (click)="toggleBlock(u)">
+                    @if (isBlocked(u)) { Débloquer } @else { Bloquer }
+                  </button>
+                </td>
+              </tr>
+            }
+            @if (filtered().length === 0) {
+              <tr><td colspan="7" class="empty-state">Aucun utilisateur trouvé</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:.75rem 1rem; border-top:1px solid var(--border); font-size:.8rem; color:var(--text-muted);">
+        {{ filtered().length }} utilisateur(s)
+      </div>
     </div>
-    <div style="padding:.75rem 1rem; border-top:1px solid var(--border); font-size:.8rem; color:var(--text-muted);">
-      {{ filtered().length }} utilisateur(s)
+  }
+
+  <!-- ── ONGLET PERFORMANCES ── -->
+  @if (activeTab() === 'performances') {
+
+    <!-- KPI résumé -->
+    <div class="kpi-strip" style="margin-bottom:1.5rem;">
+      <div class="kpi-mini">
+        <span class="kpi-mini-val">{{ filteredPerfs().length }}</span>
+        <span class="kpi-mini-label">Membres évalués</span>
+      </div>
+      <div class="kpi-mini kpi-mini--critique">
+        <span class="kpi-mini-val">{{ filteredPerfs() | sumField:'missionsEnRetard' }}</span>
+        <span class="kpi-mini-label">Missions en retard</span>
+      </div>
+      <div class="kpi-mini kpi-mini--preventif">
+        <span class="kpi-mini-val">{{ filteredPerfs() | sumField:'missionsActives' }}</span>
+        <span class="kpi-mini-label">Missions actives</span>
+      </div>
+      <div class="kpi-mini">
+        <span class="kpi-mini-val">{{ filteredPerfs() | sumField:'missionsCloturees' }}</span>
+        <span class="kpi-mini-label">Missions clôturées</span>
+      </div>
     </div>
-  </div>
+
+    <!-- Tableau ingénieurs -->
+    @if (filteredPerfs() | filterRole:'INGENIEUR'; as ings) {
+      @if (ings.length > 0) {
+        <div class="card" style="margin-bottom:1.5rem;">
+          <div class="card-header">
+            <span class="card-title">Ingénieurs ({{ ings.length }})</span>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Statut</th>
+                  <th>Pôle</th>
+                  <th>Missions actives</th>
+                  <th>Chef / Intervenant</th>
+                  <th>En retard</th>
+                  <th>Clôturées</th>
+                  <th>Total</th>
+                  <th>Taux occupation</th>
+                  <th>Charge</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of ings; track p.id) {
+                  <tr>
+                    <td style="font-weight:500;">{{ p.nomComplet }}</td>
+                    <td>
+                      <span class="status-pill" [class]="statutClass(p.statut)">{{ statutLabel(p.statut) }}</span>
+                    </td>
+                    <td style="font-size:.85rem;">{{ p.pole || '—' }}</td>
+                    <td style="text-align:center; font-weight:600;">{{ p.missionsActives }}</td>
+                    <td style="text-align:center; font-size:.85rem;">
+                      Chef : {{ p.missionsChefActives ?? 0 }} /
+                      Int. : {{ p.missionsIntervenantActives ?? 0 }}
+                    </td>
+                    <td style="text-align:center;">
+                      @if (p.missionsEnRetard > 0) {
+                        <span class="badge badge-red">{{ p.missionsEnRetard }}</span>
+                      } @else {
+                        <span style="color:var(--text-muted);">0</span>
+                      }
+                    </td>
+                    <td style="text-align:center;">{{ p.missionsCloturees }}</td>
+                    <td style="text-align:center; color:var(--text-muted);">{{ p.missionsTotal }}</td>
+                    <td>
+                      <div style="display:flex; align-items:center; gap:.5rem;">
+                        <div style="flex:1; background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
+                          <div [style.width.%]="p.tauxOccupation"
+                               [style.background]="p.tauxOccupation >= 80 ? 'var(--red)' : p.tauxOccupation >= 50 ? 'var(--orange)' : 'var(--green)'"
+                               style="height:100%; border-radius:4px; transition:width .3s;"></div>
+                        </div>
+                        <span style="font-size:.8rem; min-width:32px;">{{ p.tauxOccupation }}%</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge" [class]="niveauClass(p.niveauCharge)">{{ p.niveauCharge }}</span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    }
+
+    <!-- Tableau chargés de mission -->
+    @if (filteredPerfs() | filterRole:'CHARGE_MISSION'; as cdms) {
+      @if (cdms.length > 0) {
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Chargés de mission ({{ cdms.length }})</span>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Statut</th>
+                  <th>Missions actives</th>
+                  <th>À clôturer</th>
+                  <th>En retard</th>
+                  <th>Clôturées</th>
+                  <th>Total</th>
+                  <th>Taux clôture</th>
+                  <th>Alertes en attente</th>
+                  <th>Taux traitement alertes</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of cdms; track p.id) {
+                  <tr>
+                    <td style="font-weight:500;">{{ p.nomComplet }}</td>
+                    <td>
+                      <span class="status-pill" [class]="statutClass(p.statut)">{{ statutLabel(p.statut) }}</span>
+                    </td>
+                    <td style="text-align:center; font-weight:600;">{{ p.missionsActives }}</td>
+                    <td style="text-align:center;">
+                      @if ((p.interventionsACloturer ?? 0) > 0) {
+                        <span class="badge badge-orange">{{ p.interventionsACloturer }}</span>
+                      } @else {
+                        <span style="color:var(--text-muted);">0</span>
+                      }
+                    </td>
+                    <td style="text-align:center;">
+                      @if (p.missionsEnRetard > 0) {
+                        <span class="badge badge-red">{{ p.missionsEnRetard }}</span>
+                      } @else {
+                        <span style="color:var(--text-muted);">0</span>
+                      }
+                    </td>
+                    <td style="text-align:center;">{{ p.missionsCloturees }}</td>
+                    <td style="text-align:center; color:var(--text-muted);">{{ p.missionsTotal }}</td>
+                    <td>
+                      <div style="display:flex; align-items:center; gap:.5rem;">
+                        <div style="flex:1; background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
+                          <div [style.width.%]="p.tauxCloture ?? 0"
+                               [style.background]="(p.tauxCloture ?? 0) >= 70 ? 'var(--green)' : (p.tauxCloture ?? 0) >= 40 ? 'var(--orange)' : 'var(--red)'"
+                               style="height:100%; border-radius:4px; transition:width .3s;"></div>
+                        </div>
+                        <span style="font-size:.8rem; min-width:32px;">{{ p.tauxCloture ?? 0 }}%</span>
+                      </div>
+                    </td>
+                    <td style="text-align:center;">
+                      @if ((p.alertesEnAttente ?? 0) > 0) {
+                        <span class="badge badge-red">{{ p.alertesEnAttente }}</span>
+                      } @else {
+                        <span style="color:var(--text-muted);">0</span>
+                      }
+                    </td>
+                    <td>
+                      <div style="display:flex; align-items:center; gap:.5rem;">
+                        <div style="flex:1; background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
+                          <div [style.width.%]="p.tauxTraitementAlertes ?? 0"
+                               [style.background]="(p.tauxTraitementAlertes ?? 0) >= 70 ? 'var(--green)' : (p.tauxTraitementAlertes ?? 0) >= 40 ? 'var(--orange)' : 'var(--red)'"
+                               style="height:100%; border-radius:4px; transition:width .3s;"></div>
+                        </div>
+                        <span style="font-size:.8rem; min-width:32px;">{{ p.tauxTraitementAlertes ?? 0 }}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    }
+  }
 }

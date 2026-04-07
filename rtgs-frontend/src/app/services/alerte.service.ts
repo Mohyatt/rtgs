@@ -22,6 +22,10 @@ export class AlerteService {
     return this.http.put<AlerteDTO>(`${this.base}/${id}/traiter`, body);
   }
 
+  traiterCdm(id: number, commentaire?: string): Observable<void> {
+    return this.http.put<void>(`${this.base}/${id}/traiter-cdm`, { commentaire });
+  }
+
   getMesAlertes(): Observable<AlerteAssignmentDTO[]> {
     return this.http.get<AlerteAssignmentDTO[]>(`${this.base}/mes-alertes`);
   }

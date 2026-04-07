@@ -28,21 +28,5 @@
       </button>
     </form>
 
-    <!-- DEMO ACCOUNTS -->
-    <div class="demo-section">
-      <div class="demo-title">Comptes de démonstration</div>
-      <div class="demo-accounts">
-        @for (account of demoAccounts; track account.email) {
-          <button class="demo-account" (click)="fillAndSubmit(account)">
-            <div class="demo-avatar">{{ account.badge }}</div>
-            <div class="demo-info">
-              <span class="demo-name">{{ account.label }}</span>
-              <span class="demo-role">{{ account.role }}</span>
-            </div>
-            <span class="demo-arrow">→</span>
-          </button>
-        }
-      </div>
-    </div>
   </div>
 </div>

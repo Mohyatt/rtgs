@@ -27,8 +27,10 @@ public class AlerteController {
     private final UtilisateurRepository utilisateurRepository;
 
     @GetMapping
-    public ResponseEntity<List<AlerteDTO>> getAlertes(@RequestParam(required = false) String niveau) {
-        return ResponseEntity.ok(alerteService.getAlertesActives(niveau));
+    public ResponseEntity<List<AlerteDTO>> getAlertes(@RequestParam(required = false) String niveau,
+                                                       HttpServletRequest request) {
+        Utilisateur user = extractUser(request);
+        return ResponseEntity.ok(alerteService.getAlertesActives(niveau, user));
     }
 
     @PostMapping("/calculer")
@@ -50,6 +52,17 @@ public class AlerteController {
                                               HttpServletRequest httpRequest) {
         Utilisateur utilisateur = extractUser(httpRequest);
         return ResponseEntity.ok(alerteService.traiterAlerte(id, request, utilisateur));
+    }
+
+    @PutMapping("/{id}/traiter-cdm")
+    @PreAuthorize("hasRole('CHARGE_MISSION')")
+    public ResponseEntity<Void> traiterCdm(@PathVariable Long id,
+                                            @RequestBody(required = false) TraiterAlerteRequest request,
+                                            HttpServletRequest httpRequest) {
+        Utilisateur cdm = extractUser(httpRequest);
+        String commentaire = request != null ? request.getCommentaire() : null;
+        alerteService.marquerCdmTraitee(id, commentaire, cdm);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/mes-alertes")

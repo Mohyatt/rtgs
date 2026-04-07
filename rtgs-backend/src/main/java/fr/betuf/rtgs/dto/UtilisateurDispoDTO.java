@@ -22,4 +22,7 @@ public class UtilisateurDispoDTO {
     private String pole;
     private String disponibilite; // DISPONIBLE, CONFLIT, INDISPONIBLE
     private int nbMissionsActives;
+    // Pour le contexte remplacement : compétences couvertes vs manquantes
+    private List<String> competencesCouvrees;   // parmi celles du remplacé
+    private List<String> competencesManquantes; // parmi celles du remplacé non couvertes
 }

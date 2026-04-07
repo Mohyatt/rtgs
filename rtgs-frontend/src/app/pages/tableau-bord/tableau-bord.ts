@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, Router } from '@angular/router';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -41,12 +41,14 @@ export class TableauBordComponent implements OnInit, OnDestroy {
   loading = signal(true);
   mesMissionsActives = signal(0);
   userStatut = signal<string | null>(null);
+  meInfo = signal<UtilisateurDTO | null>(null);
 
   showIndispoModal = signal(false);
   indispoMotif = '';
   indispoDateRetour = '';
   indispoLoading = signal(false);
   indispoResult = signal<any>(null);
+  notifications = signal<any[]>([]);
 
   private refreshInterval?: ReturnType<typeof setInterval>;
 
@@ -81,6 +83,10 @@ export class TableauBordComponent implements OnInit, OnDestroy {
       ? this.http.get<UtilisateurDTO>(`${environment.apiUrl}/api/users/me`).pipe(catchError(() => of<UtilisateurDTO | null>(null)))
       : of<UtilisateurDTO | null>(null);
 
+    const notifsObs = this.isIngenieur
+      ? this.http.get<any[]>(`${environment.apiUrl}/api/users/me/notifications`).pipe(catchError(() => of([])))
+      : of([]);
+
     const mesAlertesObs = this.isChargeMission
       ? this.alerteService.getMesAlertesEnAttente().pipe(catchError(() => of([])))
       : of([]);
@@ -101,35 +107,34 @@ export class TableauBordComponent implements OnInit, OnDestroy {
       me: meObs,
       mesAlertes: mesAlertesObs,
       cdmKpi: cdmKpiObs,
-      ingKpi: ingKpiObs
-    }).subscribe(({ kpi, alertes, interventions, charge, me, mesAlertes, cdmKpi, ingKpi }) => {
+      ingKpi: ingKpiObs,
+      notifs: notifsObs
+    }).subscribe(({ kpi, alertes, interventions, charge, me, mesAlertes, cdmKpi, ingKpi, notifs }) => {
       this.kpi.set(kpi);
       this.alertes.set((alertes as AlerteDTO[]).slice(0, 5));
       const intervList = interventions as InterventionDTO[];
       this.interventions.set(intervList.slice(0, 8));
       if (this.isIngenieur) {
         this.userStatut.set(me?.statut ?? null);
+        this.meInfo.set(me as UtilisateurDTO ?? null);
       } else {
         this.userStatut.set(null);
+        this.meInfo.set(null);
       }
       this.charge.set(charge as ChargeIngenieurDTO[]);
       this.mesAlertesAssignees.set(mesAlertes as AlerteAssignmentDTO[]);
       this.cdmKpi.set(cdmKpi as Record<string, number> | null);
       this.ingKpi.set(ingKpi as Record<string, number> | null);
+      this.notifications.set(notifs as any[]);
       this.loading.set(false);
     });
   }
 
   signalerDisponibilite() {
-    const cur = this.userStatut();
-    if (cur !== 'INDISPONIBLE') {
-      this.showIndispoModal.set(true);
-      this.indispoMotif = '';
-      this.indispoDateRetour = '';
-      this.indispoResult.set(null);
-    } else {
-      this.envoyerDisponibilite('ACTIF', '', '');
-    }
+    this.showIndispoModal.set(true);
+    this.indispoMotif = '';
+    this.indispoDateRetour = '';
+    this.indispoResult.set(null);
   }
 
   confirmerIndisponibilite() {
@@ -150,8 +155,8 @@ export class TableauBordComponent implements OnInit, OnDestroy {
     this.http.patch<any>(`${environment.apiUrl}/api/users/me/disponibilite`, {}, { params }).subscribe({
       next: res => {
         this.indispoLoading.set(false);
-        this.userStatut.set(res.utilisateur?.statut || statut);
-        if (statut === 'INDISPONIBLE' && res.nbMissionsSuspendues > 0) {
+        this.userStatut.set(res.utilisateur?.statut ?? statut);
+        if (res.nbMissionsSuspendues > 0) {
           this.indispoResult.set(res);
           this.toast.show(
             `Indisponibilité enregistrée — ${res.nbMissionsSuspendues} mission(s) suspendue(s)`,
@@ -159,16 +164,13 @@ export class TableauBordComponent implements OnInit, OnDestroy {
           );
         } else {
           this.showIndispoModal.set(false);
-          this.toast.show(
-            statut === 'ACTIF' ? 'Vous êtes déclaré disponible' : 'Indisponibilité enregistrée',
-            'success'
-          );
+          this.toast.show('Indisponibilité enregistrée. Retour automatique à la date prévue.', 'success');
         }
         this.load();
       },
-      error: () => {
+      error: (err) => {
         this.indispoLoading.set(false);
-        this.toast.show('Impossible de mettre à jour la disponibilité', 'error');
+        this.toast.show(err.error?.message || 'Impossible de mettre à jour la disponibilité', 'error');
       }
     });
   }
@@ -250,7 +252,13 @@ export class TableauBordComponent implements OnInit, OnDestroy {
   reprendreIntervention(i: InterventionDTO) {
     this.interventionService.changeStatut(i.id, 'EN_COURS').subscribe({
       next: () => { this.toast.show('Intervention reprise', 'success'); this.load(); },
-      error: (err: any) => this.toast.show(err.error?.message || 'Erreur', 'error')
+      error: (err: any) => {
+        const msg = err.error?.message || 'Erreur lors de la reprise';
+        this.toast.show(msg, 'error');
+        if (err.status === 409) {
+          setTimeout(() => this.router.navigate(['/interventions', i.id, 'modifier']), 1500);
+        }
+      }
     });
   }
 

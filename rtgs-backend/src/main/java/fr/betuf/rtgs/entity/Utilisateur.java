@@ -4,6 +4,7 @@ import fr.betuf.rtgs.entity.enums.UserRole;
 import fr.betuf.rtgs.entity.enums.UserStatut;
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -43,6 +44,14 @@ public class Utilisateur {
     private String pole;
 
     private String organisation;
+
+    /** Date de retour prévue lors d'une déclaration d'indisponibilité */
+    @Column(name = "date_retour")
+    private LocalDate dateRetour;
+
+    /** Motif de l'indisponibilité en cours */
+    @Column(name = "motif_indispo", length = 500)
+    private String motifIndispo;
 
     private LocalDateTime createdAt;
 

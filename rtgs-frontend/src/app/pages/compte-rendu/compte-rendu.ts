@@ -77,10 +77,14 @@ export class CompteRenduComponent implements OnInit {
     }).subscribe({
       next: (res) => {
         this.saving.set(false);
-        const msg = res.referenceCorrectif
-          ? `Intervention clôturée. Correctif créé : ${res.referenceCorrectif}`
-          : 'Intervention clôturée avec succès.';
-        this.toast.show(msg, 'success');
+        if (res.referenceCorrectif && res.correctifId) {
+          this.toast.show(
+            `Clôture effectuée. Intervention corrective ${res.referenceCorrectif} créée — en attente d'assignation par l'admin.`,
+            'success'
+          );
+        } else {
+          this.toast.show('Intervention clôturée avec succès.', 'success');
+        }
         this.router.navigate(['/interventions']);
       },
       error: (err) => {

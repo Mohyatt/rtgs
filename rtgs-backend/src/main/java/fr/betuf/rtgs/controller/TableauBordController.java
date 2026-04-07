@@ -2,6 +2,7 @@ package fr.betuf.rtgs.controller;
 
 import fr.betuf.rtgs.dto.ChargeIngenieurDTO;
 import fr.betuf.rtgs.dto.KpiDTO;
+import fr.betuf.rtgs.dto.UserPerformanceDTO;
 import fr.betuf.rtgs.entity.Utilisateur;
 import fr.betuf.rtgs.repository.UtilisateurRepository;
 import fr.betuf.rtgs.security.JwtUtil;
@@ -48,6 +49,12 @@ public class TableauBordController {
     @PreAuthorize("hasAnyRole('ADMIN','CHARGE_MISSION')")
     public ResponseEntity<List<ChargeIngenieurDTO>> getChargeIngenieurs() {
         return ResponseEntity.ok(tableauBordService.getChargeIngenieurs());
+    }
+
+    @GetMapping("/performances")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserPerformanceDTO>> getPerformances() {
+        return ResponseEntity.ok(tableauBordService.getPerformancesAll());
     }
 
     private Utilisateur extractUser(HttpServletRequest request) {

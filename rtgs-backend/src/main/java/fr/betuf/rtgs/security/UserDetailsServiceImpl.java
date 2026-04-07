@@ -1,6 +1,7 @@
 package fr.betuf.rtgs.security;
 
 import fr.betuf.rtgs.entity.Utilisateur;
+import fr.betuf.rtgs.entity.enums.UserStatut;
 import fr.betuf.rtgs.repository.UtilisateurRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -23,9 +24,16 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé: " + email));
 
+        boolean enabled = utilisateur.getStatut() != UserStatut.SUSPENDU
+                && utilisateur.getStatut() != UserStatut.DESACTIVE;
+
         return new User(
                 utilisateur.getEmail(),
                 utilisateur.getMotDePasse(),
+                enabled,       // enabled
+                true,          // accountNonExpired
+                true,          // credentialsNonExpired
+                enabled,       // accountNonLocked
                 List.of(new SimpleGrantedAuthority("ROLE_" + utilisateur.getRole().name()))
         );
     }

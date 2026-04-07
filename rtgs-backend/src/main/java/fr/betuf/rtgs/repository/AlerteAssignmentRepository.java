@@ -23,4 +23,8 @@ public interface AlerteAssignmentRepository extends JpaRepository<AlerteAssignme
     long countTraiteesParCdm(@Param("cdmId") Long cdmId);
 
     List<AlerteAssignment> findByChargeMissionIdAndTraiteAtIsNotNull(Long chargeMissionId);
+
+    /** Trouve un assignment ASSIGNEE sur un tunnel donné (pour lien automatique à l'intervention) */
+    @Query("SELECT a FROM AlerteAssignment a WHERE a.objetType = 'TUNNEL' AND a.objetId = :tunnelId AND a.statut = 'ASSIGNEE'")
+    List<AlerteAssignment> findActiveByTunnelId(@Param("tunnelId") Long tunnelId);
 }

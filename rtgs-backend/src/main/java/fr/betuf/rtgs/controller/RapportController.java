@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+
 @RestController
 @RequestMapping("/api/rapports")
 @RequiredArgsConstructor
@@ -14,22 +16,31 @@ public class RapportController {
 
     private final RapportService rapportService;
 
+    /** Endpoint appelé par le frontend */
+    @GetMapping("/pdf")
+    public ResponseEntity<byte[]> getPdf(
+            @RequestParam(defaultValue = "INTERVENTIONS") String type,
+            @RequestParam(required = false) String dateDebut,
+            @RequestParam(required = false) String dateFin,
+            @RequestParam(required = false) Long tunnelId) {
+
+        LocalDate from = dateDebut != null && !dateDebut.isBlank() ? LocalDate.parse(dateDebut) : null;
+        LocalDate to   = dateFin   != null && !dateFin.isBlank()   ? LocalDate.parse(dateFin)   : null;
+
+        byte[] pdf = rapportService.generatePdf(type, from, to, tunnelId);
+        String filename = "rapport-" + type.toLowerCase() + "-" + LocalDate.now() + ".pdf";
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=" + filename)
+                .body(pdf);
+    }
+
     @GetMapping("/mensuel")
     public ResponseEntity<byte[]> getMensuel(@RequestParam int mois, @RequestParam int annee) {
         byte[] pdf = rapportService.generateMonthlyReportPdf(mois, annee);
         return ResponseEntity.ok()
                 .header("Content-Type", "application/pdf")
                 .header("Content-Disposition", "attachment; filename=rapport-" + annee + "-" + mois + ".pdf")
-                .body(pdf);
-    }
-
-    @GetMapping("/trimestriel")
-    public ResponseEntity<byte[]> getTrimestriel(@RequestParam int trimestre, @RequestParam int annee) {
-        // Generate quarterly report (3 months)
-        byte[] pdf = rapportService.generateMonthlyReportPdf(trimestre * 3, annee);
-        return ResponseEntity.ok()
-                .header("Content-Type", "application/pdf")
-                .header("Content-Disposition", "attachment; filename=rapport-T" + trimestre + "-" + annee + ".pdf")
                 .body(pdf);
     }
 

@@ -41,17 +41,19 @@ public class AlerteService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    public List<AlerteDTO> getAlertesActives(String niveau) {
+    public List<AlerteDTO> getAlertesActives(String niveau, Utilisateur user) {
         List<AuditLog> alertes;
-        if (niveau != null && !niveau.isBlank()) {
-            alertes = auditLogRepository.findActiveAlertesByNiveau(niveau.toUpperCase());
+
+        if (user != null && user.getRole() == UserRole.CHARGE_MISSION) {
+            // CDM : alertes PREVENTIF/RETARD/INFO sur ses propres interventions
+            alertes = auditLogRepository.findActiveAlertesInterventionByCdm(user.getId());
         } else {
-            alertes = auditLogRepository.findActiveAlertes();
+            // ADMIN : alertes CRITIQUE uniquement
+            alertes = auditLogRepository.findActiveCritiques();
         }
 
-        // Get treated IDs to exclude
-        List<AuditLog> traitees = auditLogRepository.findByTypeActionOrderByDateHeureDesc("ALERTE_TRAITEE");
-        Set<Long> traiteeIds = traitees.stream()
+        Set<Long> traiteeIds = auditLogRepository.findByTypeActionOrderByDateHeureDesc("ALERTE_TRAITEE")
+                .stream()
                 .filter(a -> a.getIdObjet() != null)
                 .map(AuditLog::getIdObjet)
                 .collect(Collectors.toSet());
@@ -60,6 +62,29 @@ public class AlerteService {
                 .filter(a -> a.getIdObjet() == null || !traiteeIds.contains(a.getIdObjet()))
                 .map(this::toAlertDTO)
                 .collect(Collectors.toList());
+    }
+
+    /** CDM acquitte directement une alerte PREVENTIF/INFO sur l'une de ses interventions */
+    public void marquerCdmTraitee(Long auditLogId, String commentaire, Utilisateur cdm) {
+        AuditLog alert = auditLogRepository.findById(auditLogId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Alerte non trouvée"));
+
+        if (!"INTERVENTION".equals(alert.getTypeObjet())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cette action est réservée aux alertes portant sur une intervention");
+        }
+
+        Intervention intervention = interventionRepository.findById(alert.getIdObjet())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Intervention non trouvée"));
+
+        if (intervention.getCreateur() == null || !cdm.getId().equals(intervention.getCreateur().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Vous n'êtes pas le chargé de mission responsable de cette intervention");
+        }
+
+        String details = "Alerte acquittée par " + cdm.getNomComplet()
+                + " — commentaire : " + (commentaire != null && !commentaire.isBlank() ? commentaire : "aucun");
+        auditLogService.save("ALERTE_TRAITEE", alert.getIdObjet(), alert.getTypeObjet(), cdm, details);
     }
 
     @Scheduled(cron = "0 0 6 * * *")
@@ -137,8 +162,52 @@ public class AlerteService {
                     }
                 });
 
+        // CONFLIT : ingénieurs affectés simultanément à deux interventions dont les dates se chevauchent
+        List<Intervention> actives = interventionRepository.findByStatutIn(
+                List.of(InterventionStatut.PLANIFIEE, InterventionStatut.EN_COURS,
+                        InterventionStatut.SUSPENDUE, InterventionStatut.BROUILLON));
+
+        for (int i = 0; i < actives.size(); i++) {
+            for (int j = i + 1; j < actives.size(); j++) {
+                Intervention int1 = actives.get(i);
+                Intervention int2 = actives.get(j);
+
+                if (!datesOverlap(int1, int2)) continue;
+
+                Set<Long> ids1 = int1.getAffectations().stream()
+                        .map(a -> a.getUtilisateur().getId()).collect(Collectors.toSet());
+                Set<Long> ids2 = int2.getAffectations().stream()
+                        .map(a -> a.getUtilisateur().getId()).collect(Collectors.toSet());
+                ids1.retainAll(ids2);
+
+                if (!ids1.isEmpty()
+                        && !auditLogRepository.existsByTypeActionAndIdObjet("ALERTE_CONFLIT", int1.getId())) {
+                    String nomsEnConflits = int1.getAffectations().stream()
+                            .filter(a -> ids1.contains(a.getUtilisateur().getId()))
+                            .map(a -> a.getUtilisateur().getNomComplet())
+                            .collect(Collectors.joining(", "));
+                    String details = int1.getReference()
+                            + " — conflit de planning avec " + int2.getReference()
+                            + " — ingénieur(s) doublement affecté(s) : " + nomsEnConflits
+                            + " — chevauchement : " + int1.getDatePrevue().format(FMT)
+                            + " ↔ " + int2.getDatePrevue().format(FMT);
+                    AuditLog entry = auditLogService.save("ALERTE_CONFLIT", int1.getId(), "INTERVENTION", null, details);
+                    created.add(toAlertDTO(entry));
+                    log.info("Alerte CONFLIT créée: {}", details);
+                }
+            }
+        }
+
         log.info("Calcul des alertes terminé: {} nouvelles alertes", created.size());
         return created;
+    }
+
+    private boolean datesOverlap(Intervention i1, Intervention i2) {
+        LocalDate start1 = i1.getDatePrevue();
+        LocalDate end1 = i1.getDateFinPrevue() != null ? i1.getDateFinPrevue() : start1;
+        LocalDate start2 = i2.getDatePrevue();
+        LocalDate end2 = i2.getDateFinPrevue() != null ? i2.getDateFinPrevue() : start2;
+        return !start1.isAfter(end2) && !start2.isAfter(end1);
     }
 
     public List<Map<String, Object>> getChargesMissionAvecCharge() {
@@ -185,8 +254,12 @@ public class AlerteService {
                 ? request.getCommentaire() : "aucun";
 
         Utilisateur chargeMission;
+        Intervention correctiveIntervention = null;
 
-        if ("INTERVENTION".equals(original.getTypeObjet()) && original.getIdObjet() != null) {
+        boolean isNcCritique = "NC_CRITIQUE".equals(dto.getNiveau());
+
+        if ("INTERVENTION".equals(original.getTypeObjet()) && !isNcCritique && original.getIdObjet() != null) {
+            // Alertes PREVENTIF/CONFLIT/INFO sur interventions : CDM = créateur de l'intervention
             Intervention intervention = interventionRepository.findById(original.getIdObjet()).orElse(null);
             if (intervention != null && intervention.getCreateur() != null) {
                 chargeMission = intervention.getCreateur();
@@ -199,6 +272,7 @@ public class AlerteService {
                         "Impossible de déterminer le chargé de mission pour cette intervention");
             }
         } else {
+            // ALERTE_CRITIQUE (tunnel) ou ALERTE_NC_CRITIQUE : admin sélectionne le CDM
             if (request.getChargeMissionId() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Un chargé de mission doit être désigné pour traiter l'alerte");
@@ -208,6 +282,15 @@ public class AlerteService {
             if (chargeMission.getRole() != UserRole.CHARGE_MISSION) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "L'utilisateur désigné n'a pas le rôle CHARGE_MISSION");
+            }
+
+            // Pour NC_CRITIQUE : assigner la corrective au CDM désigné
+            if (isNcCritique && original.getIdObjet() != null) {
+                correctiveIntervention = interventionRepository.findById(original.getIdObjet()).orElse(null);
+                if (correctiveIntervention != null) {
+                    correctiveIntervention.setCreateur(chargeMission);
+                    interventionRepository.save(correctiveIntervention);
+                }
             }
         }
 
@@ -234,6 +317,7 @@ public class AlerteService {
                 .objetLibelle(dto.getObjetLibelle())
                 .description(dto.getDescription())
                 .commentaire(commentaire)
+                .intervention(correctiveIntervention) // pré-lié pour NC_CRITIQUE
                 .build();
         alerteAssignmentRepository.save(assignment);
 

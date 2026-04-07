@@ -299,13 +299,21 @@
             {{ userStatut() === 'INDISPONIBLE' ? 'Indisponible' : 'Disponible' }}
           </strong>
         </span>
-        <button type="button" class="btn btn-primary" (click)="signalerDisponibilite()">
-          @if (userStatut() === 'INDISPONIBLE') {
-            Me déclarer disponible
-          } @else {
+        @if (userStatut() === 'INDISPONIBLE') {
+          <span style="font-size:.875rem; color:var(--text-muted);">
+            Retour automatique
+            @if (meInfo()?.dateRetour) {
+              le <strong>{{ meInfo()!.dateRetour | date:'dd/MM/yyyy' }}</strong>
+            } @else {
+              à la date prévue
+            }
+            — motif : {{ meInfo()?.motifIndispo || '—' }}
+          </span>
+        } @else {
+          <button type="button" class="btn btn-primary" (click)="signalerDisponibilite()">
             Signaler une indisponibilité
-          }
-        </button>
+          </button>
+        }
       </div>
     </div>
 
@@ -408,10 +416,10 @@
                   <td>{{ i.datePrevue | date:'dd/MM/yyyy' }}</td>
                   <td>
                     <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
-                      @if (i.statut === 'PLANIFIEE') {
+                      @if (i.statut === 'PLANIFIEE' && userStatut() !== 'INDISPONIBLE') {
                         <span class="btn btn-primary btn-sm" style="cursor:pointer;" (click)="demarrerIntervention(i)">Démarrer</span>
                       }
-                      @if (i.statut === 'SUSPENDUE') {
+                      @if (i.statut === 'SUSPENDUE' && userStatut() !== 'INDISPONIBLE') {
                         <span class="btn btn-primary btn-sm" style="cursor:pointer;" (click)="reprendreIntervention(i)">Reprendre</span>
                       }
                       @if (i.statut === 'EN_COURS') {
@@ -476,6 +484,27 @@
       <div class="card" style="margin-bottom:1.5rem;">
         <div class="card-body">
           <div class="empty-state">Aucune mission active pour le moment</div>
+        </div>
+      </div>
+    }
+
+    <!-- Notifications de remplacement -->
+    @if (notifications().length > 0) {
+      <div class="card" style="margin-bottom:1.5rem; border-left:3px solid #f59e0b;">
+        <div class="card-header">
+          <span class="card-title">Notifications</span>
+          <span class="card-badge" style="background:rgba(245,158,11,.15); color:#f59e0b;">{{ notifications().length }}</span>
+        </div>
+        <div class="card-body" style="padding:0;">
+          @for (n of notifications(); track n.id) {
+            <div style="padding:.75rem 1rem; border-bottom:1px solid var(--border); display:flex; gap:.75rem; align-items:flex-start;">
+              <span style="font-size:1rem; margin-top:.1rem;">🔔</span>
+              <div style="flex:1;">
+                <div style="font-size:.875rem;">{{ n.details }}</div>
+                <div style="font-size:.75rem; color:var(--text-muted); margin-top:.25rem;">{{ n.dateHeure | date:'dd/MM/yyyy HH:mm' }}</div>
+              </div>
+            </div>
+          }
         </div>
       </div>
     }

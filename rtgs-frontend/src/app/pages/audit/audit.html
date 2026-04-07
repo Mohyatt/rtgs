@@ -43,7 +43,7 @@
                 <span class="tag tag-default">{{ log.typeObjet }}</span>
                 <span style="margin-left:.4rem; color:var(--text-muted);">#{{ log.idObjet }}</span>
               </td>
-              <td>{{ log.utilisateur?.nomComplet || (log.utilisateur ? log.utilisateur.prenom + ' ' + log.utilisateur.nom : '—') }}</td>
+              <td>{{ log.utilisateurNom || '—' }}</td>
               <td class="audit-details">{{ log.details }}</td>
             </tr>
           }

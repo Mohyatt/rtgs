@@ -1,10 +1,12 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { InterventionService } from '../../services/intervention.service';
 import { InterventionDTO } from '../../models/intervention.model';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-interventions',
@@ -18,8 +20,10 @@ export class InterventionsComponent implements OnInit {
   private toast = inject(ToastService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private http = inject(HttpClient);
 
   interventions = signal<InterventionDTO[]>([]);
+  userStatut = signal<string | null>(null);
   loading = signal(true);
   searchText = signal('');
 
@@ -49,12 +53,18 @@ export class InterventionsComponent implements OnInit {
   get isReadOnly() { return this.role === 'EXPLOITANT'; }
 
   canModify(i: InterventionDTO): boolean {
+    if (i.statut === 'CLOTUREE' || i.statut === 'ANNULEE') return false;
     if (this.role !== 'CHARGE_MISSION') return false;
-    const isCreateur = i.createurId === this.userId;
-    return isCreateur && (i.statut === 'BROUILLON' || i.statut === 'PLANIFIEE');
+    return i.createurId === this.userId;
   }
 
   ngOnInit() {
+    if (this.role === 'INGENIEUR') {
+      this.http.get<any>(`${environment.apiUrl}/api/users/me`).subscribe({
+        next: me => this.userStatut.set(me.statut),
+        error: () => {}
+      });
+    }
     this.route.queryParams.subscribe(params => {
       if (params['statut']) this.filtreStatut.set(params['statut']);
       if (params['type']) this.filtreType.set(params['type']);
@@ -173,6 +183,7 @@ export class InterventionsComponent implements OnInit {
   }
 
   canDemarrer(i: InterventionDTO): boolean {
+    if (this.userStatut() === 'INDISPONIBLE') return false;
     if (this.role === 'INGENIEUR') return this.isChefMission(i) && (i.statut === 'PLANIFIEE' || i.statut === 'SUSPENDUE');
     return false;
   }
@@ -191,6 +202,10 @@ export class InterventionsComponent implements OnInit {
     if (i.statut !== 'SUSPENDUE') return false;
     if (this.role === 'INGENIEUR') return this.isChefMission(i);
     return this.role === 'CHARGE_MISSION' || this.role === 'ADMIN';
+  }
+
+  hasIndisponibles(i: InterventionDTO): boolean {
+    return (i.affectations || []).some(a => a.statut === 'INDISPONIBLE');
   }
 
   canAnnuler(i: InterventionDTO): boolean {
@@ -220,7 +235,14 @@ export class InterventionsComponent implements OnInit {
   reprendreIntervention(i: InterventionDTO) {
     this.service.changeStatut(i.id, 'EN_COURS').subscribe({
       next: () => { this.toast.show('Intervention reprise', 'success'); this.load(); },
-      error: (err: any) => this.toast.show(err.error?.message || 'Erreur', 'error')
+      error: (err: any) => {
+        const msg = err.error?.message || 'Erreur lors de la reprise';
+        this.toast.show(msg, 'error');
+        // Si le blocage est dû à un ingénieur indisponible, rediriger vers la modification
+        if (err.status === 409) {
+          setTimeout(() => this.router.navigate(['/interventions', i.id, 'modifier']), 1500);
+        }
+      }
     });
   }
 

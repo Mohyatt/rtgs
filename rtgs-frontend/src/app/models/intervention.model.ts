@@ -7,6 +7,7 @@ export interface AffectationResponseDTO {
   role: string;
   pole: string;
   competences: string;
+  statut: string;
 }
 
 export interface AffectationRequestDTO {
@@ -58,4 +59,5 @@ export interface CloturerRequest {
 export interface CloturerResponse {
   intervention: InterventionDTO;
   referenceCorrectif?: string;
+  correctifId?: number;
 }

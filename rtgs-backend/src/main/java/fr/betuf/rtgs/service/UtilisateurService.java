@@ -20,13 +20,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UtilisateurService {
 
     private final UtilisateurRepository utilisateurRepository;
@@ -206,14 +210,34 @@ public class UtilisateurService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Seul un ingénieur peut signaler sa disponibilité");
         }
 
-        if (!"ACTIF".equalsIgnoreCase(statut) && !"INDISPONIBLE".equalsIgnoreCase(statut)) {
+        if (!"INDISPONIBLE".equalsIgnoreCase(statut)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Statut autorisé : ACTIF ou INDISPONIBLE");
+                    "Vous ne pouvez déclarer que votre indisponibilité. Le retour est automatique à la date prévue.");
         }
 
-        UserStatut newStatut = UserStatut.valueOf(statut.toUpperCase());
+        if (user.getStatut() == UserStatut.INDISPONIBLE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Vous êtes déjà déclaré indisponible. Votre retour sera automatique à la date prévue.");
+        }
+
+        if (motif == null || motif.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Le motif est obligatoire pour déclarer une indisponibilité");
+        }
+
+        UserStatut newStatut = UserStatut.INDISPONIBLE;
         UserStatut ancien = user.getStatut();
+
+        // Sauvegarder la date de retour et le motif sur l'entité
+        LocalDate retourDate = null;
+        if (dateRetour != null && !dateRetour.isBlank()) {
+            try {
+                retourDate = LocalDate.parse(dateRetour);
+            } catch (Exception ignored) {}
+        }
         user.setStatut(newStatut);
+        user.setDateRetour(retourDate);
+        user.setMotifIndispo(motif);
         utilisateurRepository.save(user);
 
         String motifLog = (motif != null && !motif.isBlank()) ? motif : "non précisé";
@@ -226,11 +250,28 @@ public class UtilisateurService {
         List<Map<String, Object>> missionsSuspendues = new ArrayList<>();
 
         if (newStatut == UserStatut.INDISPONIBLE) {
+            LocalDate today = LocalDate.now();
+            final LocalDate finalRetourDate = retourDate;
+
             List<Affectation> affectations = affectationRepository.findByUtilisateurId(user.getId());
             for (Affectation aff : affectations) {
                 Intervention intervention = aff.getIntervention();
                 if (intervention.getStatut() == InterventionStatut.PLANIFIEE
                         || intervention.getStatut() == InterventionStatut.EN_COURS) {
+
+                    // Si une date de retour est fournie, ne suspendre que les interventions
+                    // dont la période chevauche [today, dateRetour]
+                    if (finalRetourDate != null) {
+                        LocalDate datePrevue = intervention.getDatePrevue();
+                        LocalDate dateFinPrevue = intervention.getDateFinPrevue();
+                        // L'intervention chevauche la période d'indisponibilité si :
+                        // datePrevue <= dateRetour ET (dateFinPrevue == null OU dateFinPrevue >= today)
+                        boolean startsBeforeReturn = datePrevue != null && !datePrevue.isAfter(finalRetourDate);
+                        boolean endsAfterToday = dateFinPrevue == null || !dateFinPrevue.isBefore(today);
+                        if (!startsBeforeReturn || !endsAfterToday) {
+                            continue; // Intervention hors de la période d'indisponibilité → pas suspendue
+                        }
+                    }
 
                     InterventionStatut ancienStatut = intervention.getStatut();
                     intervention.setStatut(InterventionStatut.SUSPENDUE);
@@ -271,6 +312,29 @@ public class UtilisateurService {
         return result;
     }
 
+    /**
+     * Job planifié : chaque jour à minuit, restaure automatiquement le statut ACTIF
+     * des ingénieurs dont la date de retour est atteinte.
+     */
+    @Scheduled(cron = "0 0 0 * * *")
+    @Transactional
+    public void autoRetourDisponibilite() {
+        LocalDate today = LocalDate.now();
+        List<Utilisateur> indispos = utilisateurRepository.findByStatut(UserStatut.INDISPONIBLE);
+        for (Utilisateur user : indispos) {
+            if (user.getDateRetour() != null && !user.getDateRetour().isAfter(today)) {
+                user.setStatut(UserStatut.ACTIF);
+                user.setDateRetour(null);
+                user.setMotifIndispo(null);
+                utilisateurRepository.save(user);
+                auditLogService.save("CHANGEMENT_DISPONIBILITE", user.getId(), "UTILISATEUR", user,
+                        user.getNomComplet() + " — retour automatique : INDISPONIBLE → ACTIF"
+                        + " — date de retour atteinte : " + today);
+                log.info("Retour automatique de {} (dateRetour: {})", user.getNomComplet(), today);
+            }
+        }
+    }
+
     private UtilisateurDTO toDto(Utilisateur user) {
         return UtilisateurDTO.builder()
                 .id(user.getId())
@@ -283,6 +347,8 @@ public class UtilisateurService {
                 .competences(user.getCompetences())
                 .pole(user.getPole())
                 .organisation(user.getOrganisation())
+                .dateRetour(user.getDateRetour() != null ? user.getDateRetour().toString() : null)
+                .motifIndispo(user.getMotifIndispo())
                 .build();
     }
 

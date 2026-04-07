@@ -1,6 +1,6 @@
 export interface AlerteDTO {
   id: number;
-  niveau: 'CRITIQUE' | 'PREVENTIF' | 'INFO';
+  niveau: 'CRITIQUE' | 'NC_CRITIQUE' | 'PREVENTIF' | 'PREVENTIF_RETARD' | 'CONFLIT' | 'INFO';
   objetType: string;
   objetId: number;
   objetLibelle: string;

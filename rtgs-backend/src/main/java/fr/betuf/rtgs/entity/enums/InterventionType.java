@@ -6,7 +6,9 @@ public enum InterventionType {
     EXPERTISE_GENIE_CIVIL("Expertise génie civil"),
     INSPECTION_PERIODIQUE("Inspection périodique"),
     CONTROLE_SUITE_INCIDENT("Contrôle suite à incident"),
-    INTERVENTION_CORRECTIVE("Intervention corrective");
+    INTERVENTION_CORRECTIVE("Intervention corrective"),
+    INTERVENTION_URGENCE("Intervention urgence"),
+    AUDIT_EXPLOITATION("Audit exploitation");
 
     private final String libelle;
 

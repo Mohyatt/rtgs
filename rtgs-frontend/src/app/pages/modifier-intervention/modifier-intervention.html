@@ -27,13 +27,43 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Date prévue <span class="required">*</span></label>
-            <input class="form-control" type="date" formControlName="datePrevue" />
+            <input class="form-control" type="date" formControlName="datePrevue" (change)="onDateChange()" />
+            @if (intervention()?.statut === 'EN_COURS') {
+              <div style="font-size:.75rem; color:var(--text-muted); margin-top:.25rem;">
+                🔒 Date de début verrouillée — intervention déjà démarrée
+              </div>
+            }
           </div>
           <div class="form-group">
             <label class="form-label">Date de fin prévue</label>
-            <input class="form-control" type="date" formControlName="dateFinPrevue" />
+            <input class="form-control" type="date" formControlName="dateFinPrevue"
+                   [min]="form.value.datePrevue ? form.value.datePrevue : ''"
+                   (change)="onDateChange()" />
+            @if (dateFinError) {
+              <div style="font-size:.75rem; color:var(--red); margin-top:.25rem;">
+                La date de fin doit être postérieure à la date de début.
+              </div>
+            }
           </div>
         </div>
+
+        @if (conflitsDetectes().length > 0) {
+          <div style="margin-bottom:1rem; padding:.75rem 1rem; border-radius:8px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.4);">
+            <div style="font-weight:600; font-size:.875rem; color:#b45309; margin-bottom:.5rem;">
+              ⚡ Conflit de planning détecté avec ces dates
+            </div>
+            @for (c of conflitsDetectes(); track c.id) {
+              <div style="font-size:.8rem; color:var(--text-muted); margin-top:.3rem;">
+                • <strong>{{ c.reference }}</strong> — {{ c.tunnel?.libelle }} ({{ c.datePrevue | date:'dd/MM/yyyy' }}
+                @if (c.dateFinPrevue) { → {{ c.dateFinPrevue | date:'dd/MM/yyyy' }} })
+                — ingénieurs partagés
+              </div>
+            }
+            <div style="font-size:.75rem; color:#b45309; margin-top:.5rem;">
+              Décalez davantage la date pour résoudre le conflit, ou acceptez le chevauchement.
+            </div>
+          </div>
+        }
 
         <div class="form-group">
           <label class="form-label">Description</label>
@@ -57,6 +87,85 @@
           </div>
         }
       </div>
+
+      <!-- SECTION REMPLACEMENT -->
+      @if ((intervention()?.affectations || []).length > 0) {
+        <div class="form-section">
+          <h3 class="form-section-title">Équipe affectée</h3>
+          <div style="display:flex; flex-direction:column; gap:.5rem;">
+            @for (membre of (intervention()?.affectations || []); track membre.utilisateurId) {
+              <div style="display:flex; align-items:center; gap:.75rem; padding:.6rem .75rem; border-radius:8px; background:var(--surface-2);">
+                <div class="avatar-sm">{{ membre.nomComplet[0] }}</div>
+                <div style="flex:1;">
+                  <span style="font-weight:500; font-size:.875rem;">{{ membre.nomComplet }}</span>
+                  <span style="font-size:.75rem; color:var(--text-muted); margin-left:.5rem;">{{ membre.role }}</span>
+                </div>
+                @if (membre.statut === 'INDISPONIBLE') {
+                  <span style="font-size:.7rem; padding:.2rem .5rem; border-radius:4px; background:rgba(239,68,68,.12); color:#ef4444; border:1px solid rgba(239,68,68,.25);">INDISPONIBLE</span>
+                  <button type="button" class="btn btn-sm btn-primary" (click)="ouvrirRemplacement(membre)">Remplacer</button>
+                } @else {
+                  <span style="font-size:.7rem; padding:.2rem .5rem; border-radius:4px; background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.25);">Actif</span>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Panel de sélection du remplaçant -->
+          @if (remplacerTarget()) {
+            <div style="margin-top:1rem; padding:1rem; border:1px solid var(--border); border-radius:8px; background:var(--surface-1);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem;">
+                <strong style="font-size:.875rem;">Remplacer {{ remplacerTarget()!.nomComplet }}</strong>
+                <button type="button" class="btn btn-secondary btn-sm" (click)="annulerRemplacement()">✕ Annuler</button>
+              </div>
+              @if (loadingDisponibles()) {
+                <div style="font-size:.85rem; color:var(--text-muted);">Recherche de remplaçants compatibles…</div>
+              } @else if (disponibles().length === 0) {
+                <div class="warning-box">Aucun ingénieur disponible avec des compétences compatibles sur cette période</div>
+              } @else {
+                <div style="font-size:.75rem; color:var(--text-muted); margin-bottom:.5rem;">
+                  Triés par couverture des compétences de {{ remplacerTarget()!.nomComplet }}
+                </div>
+                <div style="display:flex; flex-direction:column; gap:.4rem;">
+                  @for (u of disponibles(); track u.id) {
+                    <div style="padding:.6rem .75rem; border-radius:6px; background:var(--surface-2); border-left:3px solid {{ (u.competencesManquantes?.length ?? 0) === 0 ? 'var(--green)' : 'var(--orange)' }};">
+                      <div style="display:flex; align-items:center; gap:.75rem;">
+                        <div class="avatar-sm">{{ u.nomComplet[0] }}</div>
+                        <div style="flex:1;">
+                          <span style="font-size:.875rem; font-weight:500;">{{ u.nomComplet }}</span>
+                          <span style="font-size:.75rem; color:var(--text-muted); margin-left:.5rem;">{{ u.pole }}</span>
+                        </div>
+                        @if ((u.competencesManquantes?.length ?? 0) === 0) {
+                          <span style="font-size:.7rem; padding:.15rem .4rem; border-radius:4px; background:rgba(34,197,94,.15); color:#16a34a;">Couverture complète</span>
+                        } @else {
+                          <span style="font-size:.7rem; padding:.15rem .4rem; border-radius:4px; background:rgba(251,146,60,.15); color:#b45309;">
+                            {{ u.competencesManquantes!.length }} compétence(s) manquante(s)
+                          </span>
+                        }
+                        <button type="button" class="btn btn-primary btn-sm"
+                                [disabled]="replacingId() !== null"
+                                (click)="confirmerRemplacement(u.id)">
+                          @if (replacingId() === u.id) { En cours… } @else { Choisir }
+                        </button>
+                      </div>
+                      <!-- Compétences couvertes -->
+                      @if ((u.competencesCouvrees?.length ?? 0) > 0) {
+                        <div style="margin-top:.35rem; display:flex; flex-wrap:wrap; gap:.3rem;">
+                          @for (c of u.competencesCouvrees!; track c) {
+                            <span style="font-size:.7rem; padding:.1rem .4rem; border-radius:4px; background:rgba(34,197,94,.12); color:#16a34a; border:1px solid rgba(34,197,94,.3);">✓ {{ c }}</span>
+                          }
+                          @for (c of (u.competencesManquantes || []); track c) {
+                            <span style="font-size:.7rem; padding:.1rem .4rem; border-radius:4px; background:rgba(239,68,68,.1); color:#dc2626; border:1px solid rgba(239,68,68,.25);">✗ {{ c }}</span>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
 
       <div class="form-footer">
         <a class="btn btn-secondary" routerLink="/interventions">Annuler</a>

@@ -110,8 +110,13 @@ export class NouvelleInterventionComponent implements OnInit {
 
   hasComp(c: string) { return this.selectedCompetences().includes(c); }
 
+  get dateFinError(): boolean {
+    const v = this.form.value;
+    return !!(v.datePrevue && v.dateFinPrevue && v.dateFinPrevue <= v.datePrevue);
+  }
+
   submit() {
-    if (this.form.invalid || this.selectedCompetences().length === 0) return;
+    if (this.form.invalid || this.selectedCompetences().length === 0 || this.dateFinError) return;
     this.loading.set(true);
     const v = this.form.value;
     this.service.create({

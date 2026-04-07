@@ -87,10 +87,12 @@
           <span class="card-badge">{{ intervenants().length }}</span>
         </div>
         <div class="card-body" style="padding:0;">
+          @if (intervenants().length === 0) {
+            <div class="empty-state" style="padding:1.5rem;">Aucun ingénieur disponible sur cette période</div>
+          }
           @for (u of intervenants(); track u.id) {
             <div class="intervenant-row"
                  [class.selected]="isSelected(u.id)"
-                 [class.indispo]="u.disponibilite === 'INDISPONIBLE'"
                  (click)="toggleUser(u)">
               <div class="avatar-sm">{{ u.nomComplet[0] }}</div>
               <div class="intervenant-info">
@@ -105,23 +107,11 @@
                 </div>
               </div>
               <div class="intervenant-meta">
-                <span class="dispo-badge" [class]="dispoClass(u.disponibilite)">{{ u.disponibilite }}</span>
+                <span class="dispo-badge dispo-badge--ok">Disponible</span>
                 <span class="missions-count">{{ u.nbMissionsActives }} mission(s)</span>
               </div>
               @if (isSelected(u.id)) { <span class="check-icon">✓</span> }
             </div>
-
-            <!-- CONFLIT PANEL -->
-            @if (isSelected(u.id) && getConflit(u.id)?.aConflit) {
-              <div class="conflit-panel">
-                <div class="conflit-title">⚡ Conflit avec {{ getConflit(u.id)?.interventionEnConflit?.reference }}</div>
-                <div class="conflit-options">
-                  <div class="conflit-option"><span class="option-label">A</span> {{ getConflit(u.id)?.optionDecaler || 'Décaler intervention existante' }}</div>
-                  <div class="conflit-option"><span class="option-label">B</span> Remplacer par un intervenant alternatif</div>
-                  <div class="conflit-option"><span class="option-label">C</span> Maintenir (chevauchement accepté)</div>
-                </div>
-              </div>
-            }
           }
         </div>
       </div>

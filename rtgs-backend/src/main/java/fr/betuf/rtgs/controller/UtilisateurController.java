@@ -5,6 +5,8 @@ import fr.betuf.rtgs.dto.AdminUpdatePasswordRequestDTO;
 import fr.betuf.rtgs.dto.AdminUpdateUserRequestDTO;
 import fr.betuf.rtgs.dto.UtilisateurDTO;
 import fr.betuf.rtgs.service.UtilisateurService;
+import fr.betuf.rtgs.repository.AuditLogRepository;
+import fr.betuf.rtgs.repository.UtilisateurRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,6 +22,8 @@ import java.util.Map;
 public class UtilisateurController {
 
     private final UtilisateurService utilisateurService;
+    private final AuditLogRepository auditLogRepository;
+    private final UtilisateurRepository utilisateurRepository;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -95,6 +99,23 @@ public class UtilisateurController {
             @RequestParam(required = false) String dateRetour,
             Authentication authentication) {
         return ResponseEntity.ok(utilisateurService.toggleDisponibilite(statut, motif, dateRetour, authentication.getName()));
+    }
+
+    @GetMapping("/me/notifications")
+    @PreAuthorize("hasRole('INGENIEUR')")
+    public ResponseEntity<List<Map<String, Object>>> getNotifications(Authentication authentication) {
+        fr.betuf.rtgs.entity.Utilisateur user = utilisateurRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Utilisateur non trouvé"));
+        List<Map<String, Object>> notifs = auditLogRepository.findNotificationsRemplacement(user.getId())
+                .stream().map(log -> {
+                    Map<String, Object> m = new java.util.LinkedHashMap<>();
+                    m.put("id", log.getId());
+                    m.put("details", log.getDetails());
+                    m.put("dateHeure", log.getDateHeure());
+                    return m;
+                }).toList();
+        return ResponseEntity.ok(notifs);
     }
 
     @GetMapping("/roles")

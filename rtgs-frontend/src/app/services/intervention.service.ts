@@ -44,6 +44,10 @@ export class InterventionService {
     return this.http.get<UtilisateurDispoDTO[]>(`${this.base}/${id}/intervenants-disponibles`);
   }
 
+  getIntervenantsForRemplacement(id: number, remplacerUserId: number): Observable<UtilisateurDispoDTO[]> {
+    return this.http.get<UtilisateurDispoDTO[]>(`${this.base}/${id}/intervenants-disponibles/remplacer/${remplacerUserId}`);
+  }
+
   detecterConflits(id: number, userId: number): Observable<ConflitPlanningDTO> {
     return this.http.get<ConflitPlanningDTO>(`${this.base}/${id}/conflits/${userId}`);
   }
@@ -58,6 +62,16 @@ export class InterventionService {
 
   soumettreRapport(id: number, body: { resume: string; recommandations?: string }): Observable<InterventionDTO> {
     return this.http.post<InterventionDTO>(`${this.base}/${id}/rapport`, body);
+  }
+
+  verifierConflits(id: number, datePrevue: string, dateFinPrevue?: string): Observable<InterventionDTO[]> {
+    let params = new HttpParams().set('datePrevue', datePrevue);
+    if (dateFinPrevue) params = params.set('dateFinPrevue', dateFinPrevue);
+    return this.http.get<InterventionDTO[]>(`${this.base}/${id}/verifier-conflits`, { params });
+  }
+
+  remplacerMembre(interventionId: number, ancienUserId: number, nouvelUserId: number): Observable<InterventionDTO> {
+    return this.http.put<InterventionDTO>(`${this.base}/${interventionId}/affectations/${ancienUserId}/remplacer`, { nouvelUserId });
   }
 
   planifierAutomatique(): Observable<{ count: number }> {

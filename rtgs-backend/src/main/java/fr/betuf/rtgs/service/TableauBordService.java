@@ -2,6 +2,8 @@ package fr.betuf.rtgs.service;
 
 import fr.betuf.rtgs.dto.ChargeIngenieurDTO;
 import fr.betuf.rtgs.dto.KpiDTO;
+import fr.betuf.rtgs.dto.UserPerformanceDTO;
+import fr.betuf.rtgs.entity.Utilisateur;
 import fr.betuf.rtgs.entity.Intervention;
 import fr.betuf.rtgs.entity.enums.*;
 import fr.betuf.rtgs.repository.*;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -122,6 +125,63 @@ public class TableauBordService {
         kpi.put("missionsCloturees", missionsCloturees);
         kpi.put("missionsTotal", missionsTotal);
         return kpi;
+    }
+
+    public List<UserPerformanceDTO> getPerformancesAll() {
+        LocalDate today = LocalDate.now();
+        LocalDate firstOfMonth = today.withDayOfMonth(1);
+        LocalDate lastOfMonth = today.withDayOfMonth(today.lengthOfMonth());
+
+        List<Utilisateur> users = utilisateurRepository.findAll();
+        return users.stream()
+                .filter(u -> u.getRole() == UserRole.INGENIEUR || u.getRole() == UserRole.CHARGE_MISSION)
+                .map(u -> {
+                    UserPerformanceDTO.UserPerformanceDTOBuilder b = UserPerformanceDTO.builder()
+                            .id(u.getId())
+                            .nomComplet(u.getNomComplet())
+                            .email(u.getEmail())
+                            .role(u.getRole().name())
+                            .statut(u.getStatut().name())
+                            .pole(u.getPole());
+
+                    if (u.getRole() == UserRole.INGENIEUR) {
+                        int actives   = (int) affectationRepository.countActiveMissionsForUser(u.getId());
+                        int cloturees = (int) affectationRepository.countClotureesMissionsForUser(u.getId());
+                        int enRetard  = (int) affectationRepository.countEnRetardMissionsForUser(u.getId(), today);
+                        int total     = (int) affectationRepository.countByUtilisateurId(u.getId());
+                        int chef      = (int) affectationRepository.countChefMissionActives(u.getId());
+                        int intervenant = (int) affectationRepository.countIntervenantActives(u.getId());
+                        // Seuil max raisonnable : 5 missions actives = 100%
+                        int taux = Math.min((int) Math.round((double) actives / 5 * 100), 100);
+                        String niveau = actives >= 5 ? "ELEVE" : actives >= 3 ? "MOYEN" : "OK";
+                        b.missionsActives(actives).missionsCloturees(cloturees)
+                         .missionsEnRetard(enRetard).missionsTotal(total)
+                         .missionsChefActives(chef).missionsIntervenantActives(intervenant)
+                         .tauxOccupation(taux).niveauCharge(niveau);
+                    } else {
+                        int actives    = (int) interventionRepository.countActivesByCreateurId(u.getId());
+                        int cloturees  = (int) interventionRepository.countClotureesByCreateurId(u.getId());
+                        int enRetard   = (int) interventionRepository.countEnRetardByCreateurId(u.getId(), today);
+                        int aCloturer  = (int) interventionRepository.countACloturerByCreateurId(u.getId());
+                        int total      = (int) interventionRepository.countByCreateurId(u.getId());
+                        int alertesAtt = (int) alerteAssignmentRepository.countByChargeMissionIdAndStatut(u.getId(), "ASSIGNEE");
+                        int alertesTrt = (int) alerteAssignmentRepository.countTraiteesParCdm(u.getId());
+                        int alertesTot = (int) alerteAssignmentRepository.countByChargeMissionId(u.getId());
+                        int tauxCloture = total > 0 ? (int) Math.round((double) cloturees / total * 100) : 0;
+                        int tauxAlertes = alertesTot > 0 ? (int) Math.round((double) alertesTrt / alertesTot * 100) : 0;
+                        int taux = total > 0 ? Math.min((int) Math.round((double) actives / 10 * 100), 100) : 0;
+                        b.missionsActives(actives).missionsCloturees(cloturees)
+                         .missionsEnRetard(enRetard).missionsTotal(total)
+                         .interventionsACloturer(aCloturer)
+                         .alertesEnAttente(alertesAtt).alertesTraitees(alertesTrt)
+                         .alertesTotal(alertesTot).tauxTraitementAlertes(tauxAlertes)
+                         .tauxCloture(tauxCloture).tauxOccupation(taux);
+                    }
+                    return b.build();
+                })
+                .sorted(Comparator.comparing(UserPerformanceDTO::getRole)
+                        .thenComparing(Comparator.comparingInt(UserPerformanceDTO::getMissionsActives).reversed()))
+                .collect(Collectors.toList());
     }
 
     public List<ChargeIngenieurDTO> getChargeIngenieurs() {

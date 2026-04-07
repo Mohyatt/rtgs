@@ -20,4 +20,6 @@ public class UtilisateurDTO {
     private String competences;
     private String pole;
     private String organisation;
+    private String dateRetour;
+    private String motifIndispo;
 }

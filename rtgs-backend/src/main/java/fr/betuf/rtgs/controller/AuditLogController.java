@@ -1,6 +1,6 @@
 package fr.betuf.rtgs.controller;
 
-import fr.betuf.rtgs.entity.AuditLog;
+import fr.betuf.rtgs.dto.AuditLogDTO;
 import fr.betuf.rtgs.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +18,7 @@ public class AuditLogController {
     private final AuditLogService auditLogService;
 
     @GetMapping
-    public ResponseEntity<List<AuditLog>> getAll(
+    public ResponseEntity<List<AuditLogDTO>> getAll(
             @RequestParam(required = false) String typeObjet,
             @RequestParam(required = false) Long idObjet) {
         if (typeObjet != null && idObjet != null) {

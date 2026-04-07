@@ -26,6 +26,8 @@ public class InterventionService {
     private final UtilisateurRepository utilisateurRepository;
     private final AffectationRepository affectationRepository;
     private final NonConformiteRepository nonConformiteRepository;
+    private final AlerteAssignmentRepository alerteAssignmentRepository;
+    private final AuditLogRepository auditLogRepository;
     private final AuditLogService auditLogService;
     private final TunnelService tunnelService;
 
@@ -75,6 +77,13 @@ public class InterventionService {
                     "La date prévue doit être au minimum J+2 (règle R8)");
         }
 
+        LocalDate dateFinPrevue = (dto.getDateFinPrevue() != null && !dto.getDateFinPrevue().isBlank())
+                ? LocalDate.parse(dto.getDateFinPrevue()) : null;
+        if (dateFinPrevue != null && !dateFinPrevue.isAfter(datePrevue)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La date de fin prévue doit être postérieure à la date de début");
+        }
+
         Tunnel tunnel = tunnelRepository.findById(dto.getTunnel().getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tunnel non trouvé"));
 
@@ -83,8 +92,7 @@ public class InterventionService {
                 .type(InterventionType.valueOf(dto.getType()))
                 .statut(InterventionStatut.BROUILLON)
                 .datePrevue(datePrevue)
-                .dateFinPrevue(dto.getDateFinPrevue() != null && !dto.getDateFinPrevue().isBlank()
-                        ? LocalDate.parse(dto.getDateFinPrevue()) : null)
+                .dateFinPrevue(dateFinPrevue)
                 .competencesRequises(dto.getCompetencesRequises())
                 .description(dto.getDescription())
                 .createur(utilisateur)
@@ -97,6 +105,14 @@ public class InterventionService {
                 + " — type : " + intervention.getType().getLibelle()
                 + " — par : " + utilisateur.getNomComplet());
 
+        // Auto-résolution ALERTE_CRITIQUE sur ce tunnel si une intervention vient d'être créée
+        if (auditLogRepository.existsByTypeActionAndIdObjet("ALERTE_CRITIQUE", tunnel.getId())) {
+            auditLogService.save("ALERTE_TRAITEE", tunnel.getId(), "TUNNEL", utilisateur,
+                    tunnel.getLibelle() + " — alerte CRITIQUE résolue automatiquement"
+                    + " — intervention " + intervention.getReference() + " créée"
+                    + " — par : " + utilisateur.getNomComplet());
+        }
+
         return toDTO(intervention);
     }
 
@@ -107,27 +123,97 @@ public class InterventionService {
         boolean isCreateur = utilisateur != null && intervention.getCreateur() != null
                 && utilisateur.getId().equals(intervention.getCreateur().getId());
 
-        boolean canEdit = intervention.getStatut() == InterventionStatut.BROUILLON
-                || (isCreateur && intervention.getStatut() == InterventionStatut.PLANIFIEE);
+        boolean nonModifiable = intervention.getStatut() == InterventionStatut.CLOTUREE
+                || intervention.getStatut() == InterventionStatut.ANNULEE;
 
-        if (!canEdit) {
+        if (nonModifiable) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Modification impossible: statut " + intervention.getStatut()
-                    + (isCreateur ? "" : " — vous n'êtes pas le créateur de cette intervention"));
+                    "Modification impossible : l'intervention est " + intervention.getStatut());
+        }
+        if (!isCreateur) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Modification impossible : vous n'êtes pas le créateur de cette intervention");
         }
 
-        if (dto.getDatePrevue() != null) intervention.setDatePrevue(LocalDate.parse(dto.getDatePrevue()));
+        // Bloquer la modification de la date de début si l'intervention est EN_COURS
+        if (dto.getDatePrevue() != null && intervention.getStatut() == InterventionStatut.EN_COURS) {
+            LocalDate nouvelleDate = LocalDate.parse(dto.getDatePrevue());
+            if (!nouvelleDate.equals(intervention.getDatePrevue())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "La date de début ne peut pas être modifiée une fois l'intervention démarrée");
+            }
+        }
+
+        boolean datesModifiees = dto.getDatePrevue() != null || dto.getDateFinPrevue() != null;
+
+        LocalDate newDebut = dto.getDatePrevue() != null ? LocalDate.parse(dto.getDatePrevue()) : intervention.getDatePrevue();
+        LocalDate newFin = (dto.getDateFinPrevue() != null && !dto.getDateFinPrevue().isBlank())
+                ? LocalDate.parse(dto.getDateFinPrevue()) : intervention.getDateFinPrevue();
+        if (newFin != null && !newFin.isAfter(newDebut)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La date de fin prévue doit être postérieure à la date de début");
+        }
+
+        if (dto.getDatePrevue() != null) intervention.setDatePrevue(newDebut);
         if (dto.getDateFinPrevue() != null && !dto.getDateFinPrevue().isBlank())
-            intervention.setDateFinPrevue(LocalDate.parse(dto.getDateFinPrevue()));
+            intervention.setDateFinPrevue(newFin);
         if (dto.getDescription() != null) intervention.setDescription(dto.getDescription());
         if (dto.getCompetencesRequises() != null) intervention.setCompetencesRequises(dto.getCompetencesRequises());
 
-        intervention = interventionRepository.save(intervention);
+        final Intervention saved = interventionRepository.save(intervention);
 
         auditLogService.save("MODIFICATION", id, "INTERVENTION", utilisateur,
-                intervention.getReference() + " modifiée par " + utilisateur.getNomComplet());
+                saved.getReference() + " modifiée par " + utilisateur.getNomComplet());
 
-        return toDTO(intervention);
+        // Après modification des dates : réévaluer tous les conflits actifs (symétriquement)
+        if (datesModifiees) {
+            List<Intervention> actives = interventionRepository.findByStatutIn(
+                    List.of(InterventionStatut.PLANIFIEE, InterventionStatut.EN_COURS, InterventionStatut.SUSPENDUE));
+
+            // 1. Résoudre tous les ALERTE_CONFLIT dont le conflit n'existe plus (inclut l'autre CDM)
+            List<Long> idsConflitActifs = auditLogRepository.findInterventionIdsWithActiveConflit();
+            for (Long conflitId : idsConflitActifs) {
+                Intervention inter = actives.stream()
+                        .filter(a -> a.getId().equals(conflitId)).findFirst().orElse(null);
+                if (inter == null) continue;
+                Set<Long> userIds = inter.getAffectations() != null
+                        ? inter.getAffectations().stream()
+                               .map(a -> a.getUtilisateur().getId()).collect(Collectors.toSet())
+                        : Set.of();
+                if (userIds.isEmpty()) continue;
+                boolean conflitPersiste = actives.stream()
+                        .filter(other -> !other.getId().equals(conflitId))
+                        .filter(other -> datesOverlap(inter, other))
+                        .anyMatch(other -> other.getAffectations() != null
+                                && other.getAffectations().stream()
+                                       .anyMatch(a -> userIds.contains(a.getUtilisateur().getId())));
+                if (!conflitPersiste) {
+                    auditLogService.save("ALERTE_TRAITEE", conflitId, "INTERVENTION", utilisateur,
+                            inter.getReference() + " — alerte CONFLIT résolue automatiquement après décalage de "
+                            + saved.getReference() + " — par : " + utilisateur.getNomComplet());
+                }
+            }
+
+            // 2. Détecter si les nouvelles dates créent un nouveau conflit pour cette intervention
+            List<Affectation> savedAffs = saved.getAffectations() != null ? saved.getAffectations() : List.of();
+            if (!savedAffs.isEmpty()) {
+                Set<Long> savedUserIds = savedAffs.stream()
+                        .map(a -> a.getUtilisateur().getId()).collect(Collectors.toSet());
+                boolean nouveauConflit = actives.stream()
+                        .filter(other -> !other.getId().equals(id))
+                        .filter(other -> datesOverlap(saved, other))
+                        .anyMatch(other -> other.getAffectations() != null
+                                && other.getAffectations().stream()
+                                       .anyMatch(a -> savedUserIds.contains(a.getUtilisateur().getId())));
+                if (nouveauConflit && !auditLogRepository.existsByTypeActionAndIdObjet("ALERTE_CONFLIT", id)) {
+                    auditLogService.save("ALERTE_CONFLIT", id, "INTERVENTION", utilisateur,
+                            saved.getReference() + " — conflit de planning détecté après modification des dates"
+                            + " — par : " + utilisateur.getNomComplet());
+                }
+            }
+        }
+
+        return toDTO(saved);
     }
 
     @Transactional
@@ -151,6 +237,22 @@ public class InterventionService {
                 if (role == UserRole.INGENIEUR && !isChef) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                             "Seul le chef de mission peut démarrer/reprendre l'intervention");
+                }
+                if (utilisateur != null && utilisateur.getStatut() == UserStatut.INDISPONIBLE) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                            "Vous êtes déclaré indisponible — vous ne pouvez pas démarrer ou reprendre une intervention");
+                }
+                // Vérifier qu'aucun membre de l'équipe n'est encore INDISPONIBLE
+                if (ancien == InterventionStatut.SUSPENDUE && intervention.getAffectations() != null) {
+                    List<String> indispos = intervention.getAffectations().stream()
+                            .filter(a -> a.getUtilisateur().getStatut() == UserStatut.INDISPONIBLE)
+                            .map(a -> a.getUtilisateur().getNomComplet())
+                            .collect(Collectors.toList());
+                    if (!indispos.isEmpty()) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                "Impossible de reprendre : " + String.join(", ", indispos)
+                                + " est/sont encore indisponible(s). Remplacez-les d'abord.");
+                    }
                 }
                 break;
 
@@ -254,14 +356,86 @@ public class InterventionService {
         return ingenieurs.stream()
                 .filter(u -> matchesAnyCompetence(u, requiredComps))
                 .map(u -> computeDispo(u, intervention))
-                .sorted(Comparator.comparing(d -> {
-                    return switch (d.getDisponibilite()) {
-                        case "DISPONIBLE" -> 0;
-                        case "CONFLIT" -> 1;
-                        default -> 2;
-                    };
-                }))
+                .filter(d -> d.getDisponibilite().equals("DISPONIBLE"))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Pour un remplacement : retourne les disponibles ayant au moins une compétence du remplacé,
+     * triés par nombre de compétences couvertes (desc).
+     */
+    public List<UtilisateurDispoDTO> getIntervenantsDisponiblesForRemplacement(Long interventionId, Long remplacerUserId) {
+        Intervention intervention = findById(interventionId);
+
+        // Compétences requises par l'intervention
+        Set<String> compsRequises = parseComps(intervention.getCompetencesRequises());
+
+        // Compétences de l'ingénieur remplacé
+        Utilisateur remplace = utilisateurRepository.findById(remplacerUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ingénieur non trouvé"));
+        Set<String> compsRemplace = parseComps(remplace.getCompetences());
+
+        // Compétences requises que le remplacé apportait (intersection remplacé ∩ requises)
+        Set<String> compsRequisesDuRemplace = new HashSet<>(compsRemplace);
+        compsRequisesDuRemplace.retainAll(compsRequises);
+
+        // Compétences requises déjà couvertes par le reste de l'équipe (sans le remplacé)
+        Set<String> dejaCouverts = intervention.getAffectations() != null
+                ? intervention.getAffectations().stream()
+                        .filter(a -> !a.getUtilisateur().getId().equals(remplacerUserId))
+                        .flatMap(a -> parseComps(a.getUtilisateur().getCompetences()).stream())
+                        .collect(Collectors.toSet())
+                : new HashSet<>();
+        dejaCouverts.retainAll(compsRequises); // garder seulement celles qui sont requises
+
+        // Compétences requises manquantes après retrait du remplacé
+        Set<String> compsManquantes = new HashSet<>(compsRequisesDuRemplace);
+        compsManquantes.removeAll(dejaCouverts);
+
+        // Cible : compétences manquantes si non-vide, sinon toutes les requises du remplacé
+        // Si le remplacé ne couvrait aucune requise, proposer des candidats avec n'importe quelle requise
+        Set<String> cible = !compsManquantes.isEmpty() ? compsManquantes
+                : !compsRequisesDuRemplace.isEmpty() ? compsRequisesDuRemplace
+                : compsRequises;
+
+        return utilisateurRepository.findByRoleAndStatut(UserRole.INGENIEUR, UserStatut.ACTIF)
+                .stream()
+                .filter(u -> !u.getId().equals(remplacerUserId))
+                .filter(u -> intervention.getAffectations() == null
+                        || intervention.getAffectations().stream().noneMatch(a -> a.getUtilisateur().getId().equals(u.getId())))
+                .map(u -> computeDispoWithScore(u, intervention, cible, compsManquantes))
+                .filter(d -> d.getDisponibilite().equals("DISPONIBLE"))
+                .filter(d -> !d.getCompetencesCouvrees().isEmpty()) // couvre au moins 1 compétence cible
+                .sorted(Comparator.comparingInt((UtilisateurDispoDTO d) -> d.getCompetencesManquantes().size()))
+                .collect(Collectors.toList());
+    }
+
+    private Set<String> parseComps(String competences) {
+        if (competences == null || competences.isBlank()) return new HashSet<>();
+        return Arrays.stream(competences.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * @param cible        compétences que le candidat doit couvrir (compétences cibles)
+     * @param manquantes   compétences encore manquantes après retrait du remplacé (pour scoring)
+     */
+    private UtilisateurDispoDTO computeDispoWithScore(Utilisateur u, Intervention intervention,
+                                                       Set<String> cible, Set<String> manquantes) {
+        UtilisateurDispoDTO base = computeDispo(u, intervention);
+        Set<String> candidateComps = parseComps(u.getCompetences());
+
+        // Compétences cibles que le candidat couvre
+        List<String> couvertes = cible.stream()
+                .filter(candidateComps::contains).collect(Collectors.toList());
+        // Compétences encore manquantes même avec ce candidat
+        List<String> encoreManquantes = manquantes.stream()
+                .filter(c -> !candidateComps.contains(c)).collect(Collectors.toList());
+
+        base.setCompetencesCouvrees(couvertes);
+        base.setCompetencesManquantes(encoreManquantes);
+        return base;
     }
 
     private boolean matchesAnyCompetence(Utilisateur u, Set<String> required) {
@@ -466,6 +640,96 @@ public class InterventionService {
                     + " — par : " + cdm.getNomComplet());
         }
 
+        // Auto-résolution alerte PREVENTIF (plus d'équipe sans affectation)
+        if (auditLogRepository.existsByTypeActionAndIdObjet("ALERTE_PREVENTIF", interventionId)) {
+            auditLogService.save("ALERTE_TRAITEE", interventionId, "INTERVENTION", cdm,
+                    intervention.getReference() + " — alerte PREVENTIF résolue automatiquement : équipe affectée"
+                    + " — par : " + cdm.getNomComplet());
+        }
+
+        // Auto-résolution alerte CONFLIT si plus de conflit après réaffectation
+        if (auditLogRepository.existsByTypeActionAndIdObjet("ALERTE_CONFLIT", interventionId)) {
+            List<Long> newUserIds = dtos.stream().map(AffectationRequestDTO::getUtilisateurId).collect(Collectors.toList());
+            boolean conflitPersiste = interventionRepository.findByStatutIn(
+                    List.of(InterventionStatut.PLANIFIEE, InterventionStatut.EN_COURS, InterventionStatut.SUSPENDUE))
+                .stream()
+                .filter(other -> !other.getId().equals(interventionId))
+                .filter(other -> datesOverlap(intervention, other))
+                .anyMatch(other -> other.getAffectations().stream()
+                    .anyMatch(a -> newUserIds.contains(a.getUtilisateur().getId())));
+            if (!conflitPersiste) {
+                auditLogService.save("ALERTE_TRAITEE", interventionId, "INTERVENTION", cdm,
+                        intervention.getReference() + " — alerte CONFLIT résolue automatiquement : conflit résorbé"
+                        + " — par : " + cdm.getNomComplet());
+            }
+        }
+
+        // Lien automatique : si le tunnel de cette intervention a un AlerteAssignment ASSIGNEE,
+        // on le lie automatiquement à cette intervention et on le marque TRAITEE
+        if (intervention.getTunnel() != null) {
+            alerteAssignmentRepository.findActiveByTunnelId(intervention.getTunnel().getId())
+                    .forEach(assignment -> {
+                        assignment.setIntervention(intervention);
+                        assignment.setStatut("TRAITEE");
+                        assignment.setTraiteAt(java.time.LocalDateTime.now());
+                        alerteAssignmentRepository.save(assignment);
+                        auditLogService.save("ALERTE_RESOLUE", assignment.getObjetId(), "TUNNEL", cdm,
+                                "Alerte " + assignment.getNiveau() + " résolue automatiquement — "
+                                + "intervention planifiée : " + intervention.getReference()
+                                + " — par : " + cdm.getNomComplet());
+                    });
+        }
+
+        return toDTO(findById(interventionId));
+    }
+
+    @Transactional
+    public InterventionDTO remplacerMembre(Long interventionId, Long ancienUserId, Long nouvelUserId, Utilisateur cdm) {
+        Intervention intervention = findById(interventionId);
+
+        if (intervention.getStatut() == InterventionStatut.CLOTUREE
+                || intervention.getStatut() == InterventionStatut.ANNULEE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Impossible de modifier l'équipe d'une intervention clôturée ou annulée");
+        }
+
+        Affectation ancienne = intervention.getAffectations().stream()
+                .filter(a -> a.getUtilisateur().getId().equals(ancienUserId))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Cet intervenant n'est pas affecté à cette intervention"));
+
+        Utilisateur ancien = ancienne.getUtilisateur();
+        Utilisateur nouveau = utilisateurRepository.findById(nouvelUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nouvel intervenant introuvable"));
+
+        String roleAncien = ancienne.getRole();
+
+        // Remplacer : supprimer l'ancienne affectation, créer la nouvelle
+        affectationRepository.delete(ancienne);
+
+        Affectation nouvelleAff = Affectation.builder()
+                .intervention(intervention)
+                .utilisateur(nouveau)
+                .role(roleAncien)
+                .motif("Remplacement de " + ancien.getNomComplet() + " (indisponible)")
+                .remplaceLId(ancienUserId)
+                .build();
+        affectationRepository.save(nouvelleAff);
+
+        // Notifier l'ingénieur remplacé
+        auditLogService.save("NOTIFICATION_REMPLACEMENT", ancien.getId(), "UTILISATEUR", cdm,
+                "Vous avez été remplacé dans l'intervention " + intervention.getReference()
+                + " — tunnel : " + (intervention.getTunnel() != null ? intervention.getTunnel().getLibelle() : "?")
+                + " — remplacé par : " + nouveau.getNomComplet()
+                + " — chargé de mission : " + cdm.getNomComplet());
+
+        auditLogService.save("REMPLACEMENT_MEMBRE", interventionId, "INTERVENTION", cdm,
+                intervention.getReference() + " — " + ancien.getNomComplet()
+                + " remplacé par " + nouveau.getNomComplet()
+                + " (rôle : " + roleAncien + ")"
+                + " — par : " + cdm.getNomComplet());
+
         return toDTO(findById(interventionId));
     }
 
@@ -489,9 +753,16 @@ public class InterventionService {
             intervention.setRecommandations(request.getRecommandations());
         }
 
+        boolean resumePresent = (intervention.getResume() != null && !intervention.getResume().isBlank());
+        if (!resumePresent) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Un résumé de mission est obligatoire pour clôturer l'intervention");
+        }
+
         int nbNc = 0;
         int nbCritiques = 0;
         String referenceCorrectif = null;
+        Long correctifId = null;
 
         if (request.getNonConformites() != null) {
             for (NonConformiteDTO ncDto : request.getNonConformites()) {
@@ -517,7 +788,7 @@ public class InterventionService {
                         + " — délai correction : " + ncDto.getDelaiCorrectionJours() + " jours"
                         + " — par : " + utilisateur.getNomComplet());
 
-                // R5: CRITIQUE -> create corrective intervention
+                // R5: CRITIQUE -> create corrective intervention + alert
                 if (gravite == NCGravite.CRITIQUE) {
                     Intervention corrective = Intervention.builder()
                             .tunnel(intervention.getTunnel())
@@ -530,11 +801,23 @@ public class InterventionService {
                             .build();
                     corrective = interventionRepository.save(corrective);
                     referenceCorrectif = corrective.getReference();
+                    correctifId = corrective.getId();
 
                     auditLogService.save("CREATION_CORRECTIVE", corrective.getId(), "INTERVENTION", null,
                             "Intervention corrective " + corrective.getReference()
                             + " créée automatiquement suite à NC critique sur " + intervention.getReference()
                             + " — tunnel : " + intervention.getTunnel().getLibelle());
+
+                    // Alerte pour l'admin : NC critique déclarée → corrective à planifier
+                    String descTruncatedNc = ncDto.getDescription().length() > 80
+                            ? ncDto.getDescription().substring(0, 80) + "..." : ncDto.getDescription();
+                    auditLogService.save("ALERTE_NC_CRITIQUE", corrective.getId(), "INTERVENTION", null,
+                            corrective.getReference()
+                            + " — intervention corrective requise suite à NC critique sur "
+                            + intervention.getReference()
+                            + " — tunnel : " + intervention.getTunnel().getLibelle()
+                            + " — NC : " + descTruncatedNc
+                            + " — déclarée par : " + utilisateur.getNomComplet());
                 }
             }
         }
@@ -561,9 +844,19 @@ public class InterventionService {
                 intervention.getReference() + " — statut changé : " + ancienStatut + " → CLOTUREE"
                 + " — par : " + utilisateur.getNomComplet());
 
+        // Auto-résolution : PREVENTIF_RETARD et CONFLIT sur cette intervention
+        for (String type : List.of("ALERTE_PREVENTIF_RETARD", "ALERTE_CONFLIT", "ALERTE_INFO")) {
+            if (auditLogRepository.existsByTypeActionAndIdObjet(type, id)) {
+                auditLogService.save("ALERTE_TRAITEE", id, "INTERVENTION", utilisateur,
+                        intervention.getReference() + " — alerte " + type.replace("ALERTE_", "")
+                        + " résolue automatiquement à la clôture — par : " + utilisateur.getNomComplet());
+            }
+        }
+
         return CloturerResponse.builder()
                 .intervention(toDTO(findById(id)))
                 .referenceCorrectif(referenceCorrectif)
+                .correctifId(correctifId)
                 .build();
     }
 
@@ -612,6 +905,7 @@ public class InterventionService {
                 .role(a.getRole())
                 .pole(a.getUtilisateur().getPole())
                 .competences(a.getUtilisateur().getCompetences())
+                .statut(a.getUtilisateur().getStatut() != null ? a.getUtilisateur().getStatut().name() : null)
                 .build();
     }
 
@@ -625,5 +919,41 @@ public class InterventionService {
                 .declarantId(nc.getDeclarant() != null ? nc.getDeclarant().getId() : null)
                 .dateDeclaration(nc.getDateDeclaration() != null ? nc.getDateDeclaration().toString() : null)
                 .build();
+    }
+
+    private boolean datesOverlap(Intervention i1, Intervention i2) {
+        LocalDate start1 = i1.getDatePrevue();
+        LocalDate end1 = i1.getDateFinPrevue() != null ? i1.getDateFinPrevue() : start1;
+        LocalDate start2 = i2.getDatePrevue();
+        LocalDate end2 = i2.getDateFinPrevue() != null ? i2.getDateFinPrevue() : start2;
+        if (start1 == null || start2 == null) return false;
+        return !start1.isAfter(end2) && !start2.isAfter(end1);
+    }
+
+    private boolean datesOverlap(LocalDate start1, LocalDate end1, Intervention other) {
+        LocalDate start2 = other.getDatePrevue();
+        LocalDate end2 = other.getDateFinPrevue() != null ? other.getDateFinPrevue() : start2;
+        if (start1 == null || start2 == null) return false;
+        return !start1.isAfter(end2) && !start2.isAfter(end1);
+    }
+
+    /** Retourne la liste des interventions en conflit de planning avec les dates données */
+    public List<InterventionDTO> verifierConflitsParDates(Long interventionId, LocalDate datePrevue, LocalDate dateFinPrevue) {
+        LocalDate fin = dateFinPrevue != null ? dateFinPrevue : datePrevue;
+        Intervention courante = findById(interventionId);
+        Set<Long> userIds = courante.getAffectations() != null
+                ? courante.getAffectations().stream().map(a -> a.getUtilisateur().getId()).collect(Collectors.toSet())
+                : Set.of();
+
+        return interventionRepository.findByStatutIn(
+                List.of(InterventionStatut.PLANIFIEE, InterventionStatut.EN_COURS, InterventionStatut.SUSPENDUE))
+            .stream()
+            .filter(other -> !other.getId().equals(interventionId))
+            .filter(other -> datesOverlap(datePrevue, fin, other))
+            .filter(other -> other.getAffectations() != null
+                    && other.getAffectations().stream()
+                       .anyMatch(a -> userIds.contains(a.getUtilisateur().getId())))
+            .map(this::toDTO)
+            .collect(Collectors.toList());
     }
 }

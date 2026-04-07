@@ -33,17 +33,20 @@ export class AlertesComponent implements OnInit {
   loading = signal(true);
   activeTab = signal<'systeme' | 'mes-alertes'>('systeme');
 
-  get canTraiter() { return this.auth.currentRole() === 'ADMIN'; }
+  get canTraiter() { return this.auth.currentRole() === 'ADMIN' || this.auth.currentRole() === 'CHARGE_MISSION'; }
+  get isAdmin() { return this.auth.currentRole() === 'ADMIN'; }
   get isCdm() { return this.auth.currentRole() === 'CHARGE_MISSION'; }
 
   alertesFiltrees = computed(() => {
     const f = this.filtreNiveau();
-    return f ? this.alertes().filter(a => a.niveau === f) : this.alertes();
+    return f ? this.alertes().filter(a => a.niveau === f || (f === 'PREVENTIF' && a.niveau === 'PREVENTIF_RETARD')) : this.alertes();
   });
 
-  critiques = computed(() => this.alertes().filter(a => a.niveau === 'CRITIQUE').length);
-  preventives = computed(() => this.alertes().filter(a => a.niveau === 'PREVENTIF').length);
+  critiques = computed(() => this.alertes().filter(a => a.niveau === 'CRITIQUE' || a.niveau === 'NC_CRITIQUE').length);
+  ncCritiques = computed(() => this.alertes().filter(a => a.niveau === 'NC_CRITIQUE').length);
+  preventives = computed(() => this.alertes().filter(a => a.niveau.startsWith('PREVENTIF')).length);
   infos = computed(() => this.alertes().filter(a => a.niveau === 'INFO').length);
+  conflits = computed(() => this.alertes().filter(a => a.niveau === 'CONFLIT').length);
 
   ngOnInit() {
     this.load();
@@ -69,16 +72,21 @@ export class AlertesComponent implements OnInit {
   }
 
   creerInterventionDepuisAlerte(a: AlerteAssignmentDTO) {
-    this.router.navigate(['/interventions/nouvelle'], {
-      queryParams: {
-        alerteAssignmentId: a.id,
-        objetType: a.objetType,
-        objetId: a.objetId,
-        objetLibelle: a.objetLibelle,
-        niveau: a.niveau,
-        description: a.description
-      }
-    });
+    if (a.niveau === 'NC_CRITIQUE' && a.interventionId) {
+      // L'intervention corrective existe déjà en BROUILLON → aller affecter l'équipe
+      this.router.navigate(['/interventions', a.interventionId, 'affectation']);
+    } else {
+      this.router.navigate(['/interventions/nouvelle'], {
+        queryParams: {
+          alerteAssignmentId: a.id,
+          objetType: a.objetType,
+          objetId: a.objetId,
+          objetLibelle: a.objetLibelle,
+          niveau: a.niveau,
+          description: a.description
+        }
+      });
+    }
   }
 
   assignmentStatutClass(s: string) {
@@ -90,14 +98,20 @@ export class AlertesComponent implements OnInit {
   }
 
   traiter(alerte: AlerteDTO) {
-    const isIntervention = alerte.objetType === 'INTERVENTION';
+    if (this.isAdmin) {
+      this.traiterAdmin(alerte);
+    } else {
+      this.traiterCdmDirect(alerte);
+    }
+  }
+
+  private traiterAdmin(alerte: AlerteDTO) {
+    const isNcCritique = alerte.niveau === 'NC_CRITIQUE';
 
     this.http.get<any[]>(`${environment.apiUrl}/api/alertes/charges-mission`).subscribe({
       next: cdms => {
         const chargeMissionOptions = cdms.map(c => ({
-          id: c.id,
-          nomComplet: c.nomComplet,
-          email: c.email,
+          id: c.id, nomComplet: c.nomComplet, email: c.email,
           interventionsActives: c.interventionsActives,
           interventionsACloturer: c.interventionsACloturer,
           totalEnCharge: c.totalEnCharge,
@@ -106,15 +120,15 @@ export class AlertesComponent implements OnInit {
 
         const ref = this.dialog.open(ConfirmDialogComponent, {
           data: {
-            title: 'Traiter l\'alerte',
-            message: isIntervention
-              ? `Cette alerte concerne une intervention. Le chargé de mission sera automatiquement celui qui a créé l'intervention.`
-              : `Sélectionnez le chargé de mission le moins occupé pour traiter cette alerte.`,
+            title: isNcCritique ? 'Assigner l\'intervention corrective' : 'Traiter l\'alerte critique',
+            message: isNcCritique
+              ? `Une intervention corrective a été créée automatiquement. Désignez le chargé de mission qui doit la planifier et la traiter.`
+              : `Sélectionnez le chargé de mission à affecter pour traiter cette alerte.`,
             requireComment: true,
-            confirmLabel: 'Traiter',
+            confirmLabel: 'Assigner et traiter',
             danger: false,
-            chargeMissionOptions: isIntervention ? [] : chargeMissionOptions,
-            showChargeInfo: !isIntervention
+            chargeMissionOptions,
+            showChargeInfo: true
           },
           panelClass: 'rtgs-dialog'
         });
@@ -124,16 +138,34 @@ export class AlertesComponent implements OnInit {
               commentaire: result.comment,
               chargeMissionId: result.chargeMissionId ?? undefined
             }).subscribe({
-              next: () => {
-                this.toast.show('Alerte traitée avec succès', 'success');
-                this.load();
-              },
+              next: () => { this.toast.show('Alerte assignée au chargé de mission', 'success'); this.load(); },
               error: (err) => this.toast.show(err.error?.message || 'Erreur lors du traitement', 'error')
             });
           }
         });
       },
       error: () => this.toast.show('Impossible de charger les chargés de mission', 'error')
+    });
+  }
+
+  private traiterCdmDirect(alerte: AlerteDTO) {
+    const ref = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Acquitter l\'alerte',
+        message: `Confirmez-vous avoir pris en compte cette alerte et que des actions correctives sont en cours ?`,
+        requireComment: false,
+        confirmLabel: 'Acquitter',
+        danger: false
+      },
+      panelClass: 'rtgs-dialog'
+    });
+    ref.afterClosed().subscribe(result => {
+      if (result?.confirmed) {
+        this.alerteService.traiterCdm(alerte.id, result.comment).subscribe({
+          next: () => { this.toast.show('Alerte acquittée', 'success'); this.load(); },
+          error: (err) => this.toast.show(err.error?.message || 'Erreur', 'error')
+        });
+      }
     });
   }
 
@@ -145,7 +177,15 @@ export class AlertesComponent implements OnInit {
   }
 
   niveauClass(n: string) {
-    return n === 'CRITIQUE' ? 'alert-badge--critique' : n === 'PREVENTIF' ? 'alert-badge--preventif' : 'alert-badge--info';
+    if (n === 'CRITIQUE' || n === 'NC_CRITIQUE') return 'alert-badge--critique';
+    if (n.startsWith('PREVENTIF')) return 'alert-badge--preventif';
+    if (n === 'CONFLIT') return 'alert-badge--conflit';
+    return 'alert-badge--info';
+  }
+
+  niveauLabel(n: string) {
+    if (n === 'NC_CRITIQUE') return 'NC CRITIQUE';
+    return n;
   }
 
   objetClass(t: string) {

@@ -47,7 +47,13 @@
         </div>
         <div class="form-group">
           <label class="form-label">Date de fin prévue</label>
-          <input class="form-control" type="date" formControlName="dateFinPrevue" />
+          <input class="form-control" type="date" formControlName="dateFinPrevue"
+                 [min]="form.value.datePrevue ? form.value.datePrevue : ''" />
+          @if (dateFinError) {
+            <div style="font-size:.75rem; color:var(--red); margin-top:.25rem;">
+              La date de fin doit être postérieure à la date de début.
+            </div>
+          }
         </div>
       </div>
 
