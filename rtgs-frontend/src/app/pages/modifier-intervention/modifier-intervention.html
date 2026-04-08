@@ -102,7 +102,9 @@
                 </div>
                 @if (membre.statut === 'INDISPONIBLE') {
                   <span style="font-size:.7rem; padding:.2rem .5rem; border-radius:4px; background:rgba(239,68,68,.12); color:#ef4444; border:1px solid rgba(239,68,68,.25);">INDISPONIBLE</span>
-                  <button type="button" class="btn btn-sm btn-primary" (click)="ouvrirRemplacement(membre)">Remplacer</button>
+                  @if (isChargeMission() && remplacerTarget()?.utilisateurId !== membre.utilisateurId) {
+                    <button type="button" class="btn btn-sm btn-primary" (click)="ouvrirRemplacement(membre)">Remplacer</button>
+                  }
                 } @else {
                   <span style="font-size:.7rem; padding:.2rem .5rem; border-radius:4px; background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.25);">Actif</span>
                 }

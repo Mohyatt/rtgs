@@ -704,10 +704,12 @@ public class InterventionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nouvel intervenant introuvable"));
 
         String roleAncien = ancienne.getRole();
+        boolean etaitChef = "Chef de mission".equalsIgnoreCase(roleAncien);
 
-        // Remplacer : supprimer l'ancienne affectation, créer la nouvelle
-        affectationRepository.delete(ancienne);
+        // Retirer l'ancien de la collection (orphanRemoval le supprime en base)
+        intervention.getAffectations().remove(ancienne);
 
+        // Ajouter le nouveau avec le même rôle (Chef de mission ou Intervenant)
         Affectation nouvelleAff = Affectation.builder()
                 .intervention(intervention)
                 .utilisateur(nouveau)
@@ -715,7 +717,8 @@ public class InterventionService {
                 .motif("Remplacement de " + ancien.getNomComplet() + " (indisponible)")
                 .remplaceLId(ancienUserId)
                 .build();
-        affectationRepository.save(nouvelleAff);
+        intervention.getAffectations().add(nouvelleAff);
+        interventionRepository.save(intervention);
 
         // Notifier l'ingénieur remplacé
         auditLogService.save("NOTIFICATION_REMPLACEMENT", ancien.getId(), "UTILISATEUR", cdm,
@@ -724,11 +727,12 @@ public class InterventionService {
                 + " — remplacé par : " + nouveau.getNomComplet()
                 + " — chargé de mission : " + cdm.getNomComplet());
 
-        auditLogService.save("REMPLACEMENT_MEMBRE", interventionId, "INTERVENTION", cdm,
-                intervention.getReference() + " — " + ancien.getNomComplet()
+        String detail = intervention.getReference() + " — " + ancien.getNomComplet()
                 + " remplacé par " + nouveau.getNomComplet()
                 + " (rôle : " + roleAncien + ")"
-                + " — par : " + cdm.getNomComplet());
+                + (etaitChef ? " — nouveau chef de mission : " + nouveau.getNomComplet() : "")
+                + " — par : " + cdm.getNomComplet();
+        auditLogService.save("REMPLACEMENT_MEMBRE", interventionId, "INTERVENTION", cdm, detail);
 
         return toDTO(findById(interventionId));
     }

@@ -1,5 +1,6 @@
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/entity/enums/NCStatut.java
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/entity/enums/TunnelStatut.java
+/home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/dto/AuditLogDTO.java
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/controller/TunnelController.java
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/security/SecurityConfig.java
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/entity/Affectation.java
@@ -44,6 +45,7 @@
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/controller/InterventionController.java
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/service/PlanificationAutoService.java
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/service/NonConformiteService.java
+/home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/dto/UserPerformanceDTO.java
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/controller/TableauBordController.java
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/service/AuditLogService.java
 /home/mohamed/Documents/MIAGE_S2/SIA2/rtgs-backend/src/main/java/fr/betuf/rtgs/repository/AlerteAssignmentRepository.java

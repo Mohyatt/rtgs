@@ -7,6 +7,7 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
 import { of } from 'rxjs';
 import { InterventionService } from '../../services/intervention.service';
 import { ToastService } from '../../services/toast.service';
+import { AuthService } from '../../services/auth.service';
 import { InterventionDTO, AffectationResponseDTO } from '../../models/intervention.model';
 import { UtilisateurDispoDTO } from '../../models/utilisateur.model';
 
@@ -21,6 +22,7 @@ const ALL_COMPETENCES = ['SECURITE', 'VENTILATION', 'EEG', 'MATERIAUX', 'GEOLOGI
 export class ModifierInterventionComponent implements OnInit, OnDestroy {
   private service = inject(InterventionService);
   private toast = inject(ToastService);
+  private auth = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
@@ -136,6 +138,10 @@ export class ModifierInterventionComponent implements OnInit, OnDestroy {
   get dateFinError(): boolean {
     const v = this.form.value;
     return !!(v.datePrevue && v.dateFinPrevue && v.dateFinPrevue <= v.datePrevue);
+  }
+
+  isChargeMission(): boolean {
+    return this.auth.getRole() === 'CHARGE_MISSION';
   }
 
   get membreIndisponibles() {
