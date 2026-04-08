@@ -34,8 +34,8 @@ export interface ConfirmDialogData {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatDialogModule, MatButtonModule, MatInputModule, MatFormFieldModule, MatSelectModule],
   styles: [`
-    .cdm-option:hover { background: var(--surface-2); }
-    .cdm-option--selected { background: rgba(59,130,246,0.15) !important; border-left: 3px solid var(--blue); }
+    .cdm-option:hover { background: var(--navy3); }
+    .cdm-option--selected { background: #EEF2FF !important; border-left: 3px solid var(--blue); }
     .cdm-option:last-child { border-bottom: none; }
   `],
   template: `

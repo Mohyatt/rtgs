@@ -33,7 +33,7 @@
 
     <div class="form-footer">
       <button type="submit" class="btn btn-primary" [disabled]="generating()">
-        @if (generating()) { Génération en cours… } @else { 📄 Générer le PDF }
+        @if (generating()) { Génération en cours… } @else { <span class="material-symbols-outlined icon-sm">picture_as_pdf</span> Générer le PDF }
       </button>
     </div>
   </form>

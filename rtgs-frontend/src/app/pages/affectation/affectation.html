@@ -5,7 +5,7 @@
       <p class="page-subtitle">{{ i.reference }} — {{ i.tunnel?.libelle }}</p>
     }
   </div>
-  <a class="btn btn-secondary" routerLink="/interventions">← Retour</a>
+  <a class="btn btn-secondary" routerLink="/interventions"><span class="material-symbols-outlined icon-sm">arrow_back</span> Retour</a>
 </div>
 
 @if (loading()) {
@@ -33,7 +33,7 @@
           <div class="comp-chips">
             @for (c of competencesCouverts(); track c.comp) {
               <span class="comp-chip" [class.comp-chip--ok]="c.ok" [class.comp-chip--missing]="!c.ok">
-                {{ c.ok ? '✓' : '✗' }} {{ c.comp }}
+                <span class="material-symbols-outlined" style="font-size:14px; vertical-align:-2px;">{{ c.ok ? 'check' : 'close' }}</span> {{ c.comp }}
               </span>
             }
           </div>
@@ -53,7 +53,7 @@
         <div class="card-body">
           @if (!hasChefMission() && selectedIds().length > 0) {
             <div class="warning-box" style="margin-bottom:.75rem;">
-              ⚠ Aucun chef de mission désigné. Cliquez sur "★" pour en désigner un.
+              <span class="material-symbols-outlined icon-sm">warning</span> Aucun chef de mission désigné. Cliquez sur l'étoile pour en désigner un.
             </div>
           }
           @for (u of teamSelected(); track u.id) {
@@ -64,10 +64,10 @@
                 <span class="team-pole">{{ u.pole }}</span>
               </div>
               @if (isChef(u.id)) {
-                <span class="chef-badge">★ Chef de mission</span>
+                <span class="chef-badge"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:-2px;">star</span> Chef de mission</span>
               } @else if (canEdit) {
                 <button class="btn-set-chef" title="Désigner comme chef de mission" (click)="setChefMission(u.id)">
-                  ☆ Désigner CDM
+                  <span class="material-symbols-outlined" style="font-size:14px; vertical-align:-2px;">star_outline</span> Désigner CDM
                 </button>
               }
             </div>
@@ -98,7 +98,7 @@
               <div class="intervenant-info">
                 <span class="intervenant-name">
                   {{ u.nomComplet }}
-                  @if (isChef(u.id)) { <span class="chef-inline">★ CDM</span> }
+                  @if (isChef(u.id)) { <span class="chef-inline"><span class="material-symbols-outlined" style="font-size:13px; vertical-align:-2px;">star</span> CDM</span> }
                 </span>
                 <div class="comp-chips" style="margin-top:.25rem;">
                   @for (c of (u.competencesList || []); track c) {
@@ -110,7 +110,7 @@
                 <span class="dispo-badge dispo-badge--ok">Disponible</span>
                 <span class="missions-count">{{ u.nbMissionsActives }} mission(s)</span>
               </div>
-              @if (isSelected(u.id)) { <span class="check-icon">✓</span> }
+              @if (isSelected(u.id)) { <span class="check-icon"><span class="material-symbols-outlined" style="font-size:18px;">check</span></span> }
             </div>
           }
         </div>
