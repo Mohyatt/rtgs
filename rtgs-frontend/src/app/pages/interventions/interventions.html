@@ -158,7 +158,7 @@
                         <a [routerLink]="['/interventions', i.id, 'modifier']"
                            class="btn btn-sm" style="background:var(--orange);color:#fff;"
                            title="Des ingénieurs sont indisponibles — remplacez-les avant de reprendre">
-                          ⚠ Remplacer l'équipe
+                          <span class="material-symbols-outlined icon-sm">swap_horiz</span> Remplacer l'équipe
                         </a>
                       } @else {
                         <button class="btn btn-primary btn-sm" (click)="reprendreIntervention(i)">Reprendre</button>

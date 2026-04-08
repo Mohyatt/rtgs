@@ -11,7 +11,7 @@
     <nav class="sidebar-nav">
       @for (item of visibleNavItems(); track item.path) {
         <a class="nav-item" [routerLink]="item.path" routerLinkActive="active">
-          <span class="nav-icon">{{ item.icon }}</span>
+          <span class="material-symbols-outlined nav-icon">{{ item.icon }}</span>
           @if (sidebarOpen()) {
             <span class="nav-label">{{ item.label }}</span>
           }
@@ -21,13 +21,13 @@
 
     <div class="sidebar-footer">
       <a class="nav-item" href="/portail" target="_blank">
-        <span class="nav-icon">🌐</span>
+        <span class="material-symbols-outlined nav-icon">language</span>
         @if (sidebarOpen()) {
           <span class="nav-label">Portail public</span>
         }
       </a>
       <button class="nav-item logout-btn" (click)="logout()">
-        <span class="nav-icon">⏻</span>
+        <span class="material-symbols-outlined nav-icon">logout</span>
         @if (sidebarOpen()) {
           <span class="nav-label">Déconnexion</span>
         }
@@ -40,7 +40,9 @@
     <!-- TOPBAR -->
     <header class="topbar">
       <div class="topbar-left">
-        <button class="topbar-toggle" (click)="toggleSidebar()">☰</button>
+        <button class="topbar-toggle" (click)="toggleSidebar()">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
       </div>
       <div class="topbar-center">
         <div class="topbar-clock">
@@ -50,7 +52,7 @@
       </div>
       <div class="topbar-right">
         <div class="topbar-notif" (click)="toggleNotif()">
-          <span class="notif-icon">🔔</span>
+          <span class="material-symbols-outlined notif-icon">notifications</span>
           <span class="badge badge-red">3</span>
           @if (notifOpen()) {
             <div class="notif-dropdown">
@@ -89,4 +91,14 @@
       <router-outlet />
     </main>
   </div>
+
+  <!-- MOBILE TAB BAR -->
+  <nav class="mobile-tab-bar">
+    @for (item of visibleNavItems(); track item.path) {
+      <a class="tab-item" [routerLink]="item.path" routerLinkActive="active">
+        <span class="material-symbols-outlined">{{ item.icon }}</span>
+        <span class="tab-label">{{ item.label }}</span>
+      </a>
+    }
+  </nav>
 </div>

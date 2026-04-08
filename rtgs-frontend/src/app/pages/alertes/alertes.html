@@ -8,7 +8,7 @@
     }
   </div>
   @if (isAdmin) {
-    <button class="btn btn-secondary" (click)="calculer()">↻ Recalculer</button>
+    <button class="btn btn-secondary" (click)="calculer()"><span class="material-symbols-outlined icon-sm">refresh</span> Recalculer</button>
   }
 </div>
 
@@ -67,7 +67,7 @@
                     @if (a.niveau === 'NC_CRITIQUE') { Planifier l'intervention } @else { Créer intervention }
                   </button>
                 } @else {
-                  <span style="color: var(--green);">✓ Traitée</span>
+                  <span style="color: var(--green);"><span class="material-symbols-outlined icon-xs">check_circle</span> Traitée</span>
                 }
               </td>
             </tr>

@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 
 @Component
-@Profile("dev")
+@Profile({"dev", "local"})
 @RequiredArgsConstructor
 @Slf4j
 public class DataSeeder implements ApplicationRunner {

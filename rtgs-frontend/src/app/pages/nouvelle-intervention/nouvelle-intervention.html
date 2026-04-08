@@ -3,12 +3,12 @@
     <h1 class="page-title">Nouvelle intervention</h1>
     <p class="page-subtitle">Planifier une nouvelle mission de surveillance ou d'expertise</p>
   </div>
-  <a class="btn btn-secondary" routerLink="/interventions">← Retour</a>
+  <a class="btn btn-secondary" routerLink="/interventions"><span class="material-symbols-outlined icon-sm">arrow_back</span> Retour</a>
 </div>
 
 @if (alerteInfo()) {
   <div class="info-box" style="margin-bottom:1rem; padding:1rem 1.25rem; border-radius:8px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); display:flex; gap:.75rem; align-items:center;">
-    <span style="font-size:1.25rem;">🔗</span>
+    <span class="material-symbols-outlined" style="font-size:1.25rem; color:var(--blue);">link</span>
     <div>
       <strong>Intervention liée à une alerte</strong>
       <div style="color:var(--text-secondary); font-size:.875rem; margin-top:2px;">{{ alerteInfo() }}</div>

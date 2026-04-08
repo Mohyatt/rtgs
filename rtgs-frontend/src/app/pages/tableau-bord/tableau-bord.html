@@ -16,7 +16,7 @@
   @if (isChargeMission && cdmKpi(); as ck) {
     <div class="kpi-grid">
       <div class="kpi-card kpi-card--critique" (click)="goToAlertes()">
-        <div class="kpi-icon">📨</div>
+        <div class="kpi-icon material-symbols-outlined">mail</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ ck['alertesEnAttente'] }}</div>
           <div class="kpi-label">Alertes à traiter</div>
@@ -24,7 +24,7 @@
         <span class="kpi-link">Voir →</span>
       </div>
       <div class="kpi-card kpi-card--mois" (click)="goToInterventionsMois()">
-        <div class="kpi-icon">📅</div>
+        <div class="kpi-icon material-symbols-outlined">calendar_month</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ ck['interventionsCeMois'] }}</div>
           <div class="kpi-label">Mes interventions ce mois</div>
@@ -32,7 +32,7 @@
         <span class="kpi-link">Voir →</span>
       </div>
       <div class="kpi-card kpi-card--retard" (click)="goToInterventions({retard:'oui'})">
-        <div class="kpi-icon">🕐</div>
+        <div class="kpi-icon material-symbols-outlined">schedule</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ ck['interventionsEnRetard'] }}</div>
           <div class="kpi-label">Mes interventions en retard</div>
@@ -40,7 +40,7 @@
         <span class="kpi-link">Voir →</span>
       </div>
       <div class="kpi-card" style="border-left:4px solid var(--blue);" (click)="goToInterventions({statut:'A_CLOTURER'})">
-        <div class="kpi-icon">📋</div>
+        <div class="kpi-icon material-symbols-outlined">assignment</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ ck['interventionsACloturer'] }}</div>
           <div class="kpi-label">À clôturer</div>
@@ -48,7 +48,7 @@
         <span class="kpi-link">Voir →</span>
       </div>
       <div class="kpi-card kpi-card--conformite">
-        <div class="kpi-icon">✓</div>
+        <div class="kpi-icon material-symbols-outlined">check_circle</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ ck['tauxCloture'] }}%</div>
           <div class="kpi-label">Taux de clôture</div>
@@ -262,28 +262,28 @@
   @if (isIngenieur && ingKpi(); as ik) {
     <div class="kpi-grid">
       <div class="kpi-card" style="border-left:4px solid var(--blue);">
-        <div class="kpi-icon">👔</div>
+        <div class="kpi-icon material-symbols-outlined">badge</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ ik['missionsChefActives'] }}</div>
           <div class="kpi-label">Chef de mission</div>
         </div>
       </div>
       <div class="kpi-card" style="border-left:4px solid var(--text-muted);">
-        <div class="kpi-icon">🔧</div>
+        <div class="kpi-icon material-symbols-outlined">build</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ ik['missionsIntervenantActives'] }}</div>
           <div class="kpi-label">Intervenant</div>
         </div>
       </div>
       <div class="kpi-card kpi-card--retard">
-        <div class="kpi-icon">🕐</div>
+        <div class="kpi-icon material-symbols-outlined">schedule</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ ik['missionsEnRetard'] }}</div>
           <div class="kpi-label">Missions en retard</div>
         </div>
       </div>
       <div class="kpi-card kpi-card--conformite">
-        <div class="kpi-icon">✅</div>
+        <div class="kpi-icon material-symbols-outlined">task_alt</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ ik['missionsCloturees'] }}</div>
           <div class="kpi-label">Missions clôturées</div>
@@ -324,7 +324,7 @@
           @if (!indispoResult()) {
             <div class="modal-header">
               <h3 style="margin:0;">Signaler une indisponibilité</h3>
-              <button class="btn-icon-danger" (click)="fermerIndispoModal()">✕</button>
+              <button class="btn-icon-danger" (click)="fermerIndispoModal()"><span class="material-symbols-outlined icon-sm">close</span></button>
             </div>
             <div class="modal-body">
               <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:1rem;">
@@ -498,7 +498,7 @@
         <div class="card-body" style="padding:0;">
           @for (n of notifications(); track n.id) {
             <div style="padding:.75rem 1rem; border-bottom:1px solid var(--border); display:flex; gap:.75rem; align-items:flex-start;">
-              <span style="font-size:1rem; margin-top:.1rem;">🔔</span>
+              <span class="material-symbols-outlined" style="font-size:1rem; margin-top:.1rem;">notifications</span>
               <div style="flex:1;">
                 <div style="font-size:.875rem;">{{ n.details }}</div>
                 <div style="font-size:.75rem; color:var(--text-muted); margin-top:.25rem;">{{ n.dateHeure | date:'dd/MM/yyyy HH:mm' }}</div>
@@ -514,7 +514,7 @@
   @if (!isChargeMission && !isIngenieur && kpi(); as k) {
     <div class="kpi-grid">
       <div class="kpi-card kpi-card--critique" (click)="!isExploitant && goToAlertes('CRITIQUE')">
-        <div class="kpi-icon">⚠</div>
+        <div class="kpi-icon material-symbols-outlined">warning</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ k.alertesCritiques }}</div>
           <div class="kpi-label">Alertes critiques</div>
@@ -524,7 +524,7 @@
         }
       </div>
       <div class="kpi-card kpi-card--retard" (click)="!isExploitant && goToInterventions({retard:'oui'})">
-        <div class="kpi-icon">🕐</div>
+        <div class="kpi-icon material-symbols-outlined">schedule</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ k.interventionsEnRetard }}</div>
           <div class="kpi-label">Interventions en retard</div>
@@ -534,7 +534,7 @@
         }
       </div>
       <div class="kpi-card kpi-card--mois" (click)="goToInterventionsMois()">
-        <div class="kpi-icon">📅</div>
+        <div class="kpi-icon material-symbols-outlined">calendar_month</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ k.interventionsCeMois }}</div>
           <div class="kpi-label">Interventions ce mois</div>
@@ -542,7 +542,7 @@
         <span class="kpi-link">Voir →</span>
       </div>
       <div class="kpi-card kpi-card--conformite">
-        <div class="kpi-icon">✓</div>
+        <div class="kpi-icon material-symbols-outlined">verified</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ k.tauxConformite }}%</div>
           <div class="kpi-label">Taux de conformité</div>

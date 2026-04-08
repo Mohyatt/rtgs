@@ -5,7 +5,7 @@
       <p class="page-subtitle">{{ i.reference }} — {{ i.tunnel?.libelle }}</p>
     }
   </div>
-  <a class="btn btn-secondary" routerLink="/interventions">← Retour</a>
+  <a class="btn btn-secondary" routerLink="/interventions"><span class="material-symbols-outlined icon-sm">arrow_back</span> Retour</a>
 </div>
 
 @if (loading()) {
@@ -64,7 +64,7 @@
           <div class="card-body">
             @if (hasCritique()) {
               <div class="warning-box warning-box--critique" style="margin-bottom:1rem;">
-                ⚠ Non-conformité(s) CRITIQUE détectée(s). Un correctif sera automatiquement planifié à la clôture.
+                <span class="material-symbols-outlined icon-sm">warning</span> Non-conformité(s) CRITIQUE détectée(s). Un correctif sera automatiquement planifié à la clôture.
               </div>
             }
             <div formArrayName="nonConformites">
@@ -78,7 +78,7 @@
                       <option value="MAJEUR">Majeur</option>
                       <option value="CRITIQUE">Critique</option>
                     </select>
-                    <button type="button" class="btn-icon-danger" (click)="removeNC(i)">✕</button>
+                    <button type="button" class="btn-icon-danger" (click)="removeNC(i)"><span class="material-symbols-outlined icon-sm">close</span></button>
                   </div>
                   <textarea class="form-control" formControlName="description" rows="2"
                             placeholder="Description de la non-conformité…"></textarea>

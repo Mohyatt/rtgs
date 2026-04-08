@@ -15,7 +15,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   currentTime = signal('');
   currentDate = signal('');
-  sidebarOpen = signal(true);
+  sidebarOpen = signal(typeof window !== 'undefined' ? window.innerWidth > 768 : true);
   notifOpen = signal(false);
 
   private clockInterval?: ReturnType<typeof setInterval>;
@@ -54,13 +54,13 @@ export class LayoutComponent implements OnInit, OnDestroy {
   });
 
   navItems = [
-    { path: '/dashboard', icon: '⊞', label: 'Tableau de bord', roles: ['ADMIN', 'CHARGE_MISSION', 'INGENIEUR', 'EXPLOITANT'] },
-    { path: '/alertes', icon: '⚠', label: 'Alertes', roles: ['ADMIN', 'CHARGE_MISSION'] },
-    { path: '/interventions', icon: '⚙', label: 'Interventions', roles: ['ADMIN', 'CHARGE_MISSION', 'INGENIEUR', 'EXPLOITANT'] },
-    { path: '/tunnels', icon: '⛏', label: 'Tunnels', roles: ['ADMIN', 'CHARGE_MISSION', 'INGENIEUR', 'EXPLOITANT'] },
-    { path: '/rapports', icon: '📄', label: 'Rapports', roles: ['ADMIN', 'CHARGE_MISSION', 'EXPLOITANT'] },
-    { path: '/utilisateurs', icon: '👥', label: 'Utilisateurs', roles: ['ADMIN'] },
-    { path: '/audit', icon: '🔍', label: "Journal d'audit", roles: ['ADMIN'] },
+    { path: '/dashboard', icon: 'dashboard', label: 'Tableau de bord', roles: ['ADMIN', 'CHARGE_MISSION', 'INGENIEUR', 'EXPLOITANT'] },
+    { path: '/alertes', icon: 'warning', label: 'Alertes', roles: ['ADMIN', 'CHARGE_MISSION'] },
+    { path: '/interventions', icon: 'engineering', label: 'Interventions', roles: ['ADMIN', 'CHARGE_MISSION', 'INGENIEUR', 'EXPLOITANT'] },
+    { path: '/tunnels', icon: 'route', label: 'Tunnels', roles: ['ADMIN', 'CHARGE_MISSION', 'INGENIEUR', 'EXPLOITANT'] },
+    { path: '/rapports', icon: 'description', label: 'Rapports', roles: ['ADMIN', 'CHARGE_MISSION', 'EXPLOITANT'] },
+    { path: '/utilisateurs', icon: 'group', label: 'Utilisateurs', roles: ['ADMIN'] },
+    { path: '/audit', icon: 'history', label: "Journal d'audit", roles: ['ADMIN'] },
   ];
 
   visibleNavItems = computed(() =>
