@@ -320,28 +320,30 @@
     <!-- Modal indisponibilité -->
     @if (showIndispoModal()) {
       <div class="modal-overlay" (click)="fermerIndispoModal()">
-        <div class="modal-content" (click)="$event.stopPropagation()" style="max-width:520px;">
+        <div class="modal" (click)="$event.stopPropagation()" style="max-width:520px;">
           @if (!indispoResult()) {
             <div class="modal-header">
-              <h3 style="margin:0;">Signaler une indisponibilité</h3>
-              <button class="btn-icon-danger" (click)="fermerIndispoModal()"><span class="material-symbols-outlined icon-sm">close</span></button>
+              <span class="modal-title">Signaler une indisponibilité</span>
+              <button class="modal-close" (click)="fermerIndispoModal()"><span class="material-symbols-outlined icon-sm">close</span></button>
             </div>
             <div class="modal-body">
-              <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:1rem;">
-                Vos missions actives (planifiées et en cours) seront <strong>automatiquement suspendues</strong>
+              <p style="font-size:.875rem; color:#475569; margin-bottom:1.25rem; line-height:1.6;">
+                Vos missions actives (planifiées et en cours) seront <strong style="color:#1e293b;">automatiquement suspendues</strong>
                 et les chargés de mission concernés seront notifiés.
               </p>
               <div class="form-group" style="margin-bottom:1rem;">
-                <label class="form-label">Motif <span class="required">*</span></label>
-                <textarea class="form-control" [(ngModel)]="indispoMotif" rows="2"
+                <label class="form-label" style="color:#374151;">Motif <span class="required">*</span></label>
+                <textarea style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; color:#1e293b; font-size:13px; padding:9px 12px; width:100%; resize:vertical;"
+                          [(ngModel)]="indispoMotif" rows="2"
                           placeholder="Ex: Congé maladie, formation, congé personnel…"></textarea>
               </div>
               <div class="form-group">
-                <label class="form-label">Date de retour prévue</label>
-                <input class="form-control" type="date" [(ngModel)]="indispoDateRetour" />
+                <label class="form-label" style="color:#374151;">Date de retour prévue</label>
+                <input style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; color:#1e293b; font-size:13px; padding:9px 12px; width:100%;"
+                       type="date" [(ngModel)]="indispoDateRetour" />
               </div>
             </div>
-            <div class="modal-footer" style="display:flex; gap:.75rem; justify-content:flex-end; padding:1rem 1.5rem; border-top:1px solid var(--border);">
+            <div class="modal-footer">
               <button class="btn btn-secondary" (click)="fermerIndispoModal()">Annuler</button>
               <button class="btn btn-primary" [disabled]="!indispoMotif.trim() || indispoLoading()"
                       (click)="confirmerIndisponibilite()">
@@ -350,36 +352,45 @@
             </div>
           } @else {
             <div class="modal-header">
-              <h3 style="margin:0;">Indisponibilité enregistrée</h3>
+              <span class="modal-title">Indisponibilité enregistrée</span>
             </div>
             <div class="modal-body">
-              <div style="padding:.75rem 1rem; border-radius:8px; background:rgba(251,146,60,0.12); border:1px solid rgba(251,146,60,0.3); margin-bottom:1rem;">
-                <strong>{{ indispoResult().nbMissionsSuspendues }} mission(s) suspendue(s)</strong>
+              <div style="padding:.75rem 1rem; border-radius:8px; background:#fff7ed; border:1px solid #fed7aa; margin-bottom:1rem;">
+                <strong style="color:#92400e;">{{ indispoResult().nbMissionsSuspendues }} mission(s) suspendue(s)</strong>
               </div>
-              <div class="table-wrapper">
-                <table class="data-table" style="font-size:.85rem;">
+              <div class="table-wrapper" style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
                   <thead>
-                    <tr><th>Référence</th><th>Tunnel</th><th>Votre rôle</th><th>Ancien statut</th></tr>
+                    <tr style="background:#f1f5f9;">
+                      <th style="padding:8px 12px; text-align:left; font-size:.75rem; font-weight:600; color:#64748b; letter-spacing:.5px; text-transform:uppercase;">Référence</th>
+                      <th style="padding:8px 12px; text-align:left; font-size:.75rem; font-weight:600; color:#64748b; letter-spacing:.5px; text-transform:uppercase;">Tunnel</th>
+                      <th style="padding:8px 12px; text-align:left; font-size:.75rem; font-weight:600; color:#64748b; letter-spacing:.5px; text-transform:uppercase;">Rôle</th>
+                      <th style="padding:8px 12px; text-align:left; font-size:.75rem; font-weight:600; color:#64748b; letter-spacing:.5px; text-transform:uppercase;">Statut</th>
+                    </tr>
                   </thead>
                   <tbody>
                     @for (m of indispoResult().missionsSuspendues; track m.interventionId) {
-                      <tr>
-                        <td><strong>{{ m.reference }}</strong></td>
-                        <td>{{ m.tunnel }}</td>
-                        <td>{{ m.role }}</td>
-                        <td><span class="status-pill status-pill--{{ m.ancienStatut === 'EN_COURS' ? 'en-cours' : 'planifiee' }}">
-                          {{ m.ancienStatut === 'EN_COURS' ? 'En cours' : 'Planifiée' }}
-                        </span></td>
+                      <tr style="border-top:1px solid #e2e8f0;">
+                        <td style="padding:8px 12px; font-weight:600; color:#1e293b;">{{ m.reference }}</td>
+                        <td style="padding:8px 12px; color:#475569;">{{ m.tunnel }}</td>
+                        <td style="padding:8px 12px; color:#475569;">{{ m.role }}</td>
+                        <td style="padding:8px 12px;">
+                          <span style="font-size:.75rem; padding:.2rem .5rem; border-radius:4px;"
+                                [style.background]="m.ancienStatut === 'EN_COURS' ? '#dbeafe' : '#dcfce7'"
+                                [style.color]="m.ancienStatut === 'EN_COURS' ? '#1d4ed8' : '#15803d'">
+                            {{ m.ancienStatut === 'EN_COURS' ? 'En cours' : 'Planifiée' }}
+                          </span>
+                        </td>
                       </tr>
                     }
                   </tbody>
                 </table>
               </div>
-              <p style="font-size:.8rem; color:var(--text-muted); margin-top:.75rem;">
+              <p style="font-size:.8rem; color:#64748b; margin-top:.75rem; line-height:1.5;">
                 Les chargés de mission concernés ont été notifiés par alerte. Ils pourront remplacer l'intervenant ou décaler l'intervention.
               </p>
             </div>
-            <div class="modal-footer" style="display:flex; justify-content:flex-end; padding:1rem 1.5rem; border-top:1px solid var(--border);">
+            <div class="modal-footer">
               <button class="btn btn-primary" (click)="fermerIndispoModal()">Compris</button>
             </div>
           }

@@ -17,7 +17,7 @@ export class AuthService {
 
   private _loadUser(): AuthResponseDTO | null {
     try {
-      const raw = localStorage.getItem(this.USER_KEY);
+      const raw = sessionStorage.getItem(this.USER_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   }
@@ -25,8 +25,8 @@ export class AuthService {
   login(dto: LoginRequestDTO): Observable<AuthResponseDTO> {
     return this.http.post<AuthResponseDTO>(`${environment.apiUrl}/api/auth/login`, dto).pipe(
       tap(res => {
-        localStorage.setItem(this.TOKEN_KEY, res.token);
-        localStorage.setItem(this.USER_KEY, JSON.stringify(res));
+        sessionStorage.setItem(this.TOKEN_KEY, res.token);
+        sessionStorage.setItem(this.USER_KEY, JSON.stringify(res));
         this._user.set(res);
       })
     );
@@ -35,13 +35,13 @@ export class AuthService {
   logout(): void {
     const user = this._user();
     this.http.post(`${environment.apiUrl}/api/auth/logout`, { userId: user?.userId }).subscribe({ error: () => {} });
-    localStorage.removeItem(this.TOKEN_KEY);
-    localStorage.removeItem(this.USER_KEY);
+    sessionStorage.removeItem(this.TOKEN_KEY);
+    sessionStorage.removeItem(this.USER_KEY);
     this._user.set(null);
   }
 
   getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
+    return sessionStorage.getItem(this.TOKEN_KEY);
   }
 
   getUser(): AuthResponseDTO | null {

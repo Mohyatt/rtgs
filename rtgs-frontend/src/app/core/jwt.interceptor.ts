@@ -16,8 +16,8 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   return next(authReq).pipe(
     catchError(err => {
       if (err.status === 401) {
-        localStorage.removeItem('rtgs_token');
-        localStorage.removeItem('rtgs_user');
+        sessionStorage.removeItem('rtgs_token');
+        sessionStorage.removeItem('rtgs_user');
         router.navigate(['/login']);
       }
       return throwError(() => err);
